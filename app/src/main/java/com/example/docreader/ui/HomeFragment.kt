@@ -9,13 +9,20 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
 import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.widget.SearchView
 import androidx.core.content.ContextCompat
+import androidx.core.view.MenuHost
+import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.docreader.R
@@ -59,15 +66,59 @@ class HomeFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         setupRecyclerView()
         setupFilters()
-        setupToolbar()
+        // Removed explicit setupToolbar() listener logic because we are now using MenuProvider for better search integration
+        
+        // Setup Toolbar as ActionBar to support MenuProvider and SearchView
+        (requireActivity() as? androidx.appcompat.app.AppCompatActivity)?.setSupportActionBar(binding.topAppBar)
+
+        setupMenu()
         observeViewModel()
         
         checkPermissionAndLoad()
     }
 
+    private fun setupMenu() {
+        val menuHost: MenuHost = requireActivity()
+        menuHost.addMenuProvider(object : MenuProvider {
+            override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
+                menuInflater.inflate(R.menu.home_menu, menu)
+                
+                val searchItem = menu.findItem(R.id.action_search)
+                val searchView = searchItem.actionView as? SearchView
+                
+                searchView?.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+                    override fun onQueryTextSubmit(query: String?): Boolean {
+                        viewModel.searchDocuments(query ?: "")
+                        searchView.clearFocus() // Hide keyboard
+                        return true
+                    }
+
+                    override fun onQueryTextChange(newText: String?): Boolean {
+                        viewModel.searchDocuments(newText ?: "")
+                        return true
+                    }
+                })
+            }
+
+            override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
+                return when (menuItem.itemId) {
+                    R.id.action_refresh -> {
+                        checkPermissionAndLoad()
+                        Toast.makeText(context, "Refreshing...", Toast.LENGTH_SHORT).show()
+                        true
+                    }
+                    R.id.action_add_file -> {
+                        openMultipleDocumentsLauncher.launch(arrayOf("*/*"))
+                        true
+                    }
+                    else -> false
+                }
+            }
+        }, viewLifecycleOwner, Lifecycle.State.RESUMED)
+    }
+
     override fun onResume() {
         super.onResume()
-        // If we came back from settings for MANAGE_EXTERNAL_STORAGE, reload.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (Environment.isExternalStorageManager()) {
                 viewModel.loadDocuments()
@@ -76,11 +127,10 @@ class HomeFragment : Fragment() {
     }
 
     private fun checkPermissionAndLoad() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) { // Android 11+ (API 30+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
              if (Environment.isExternalStorageManager()) {
                  viewModel.loadDocuments()
              } else {
-                 // Request "All Files Access"
                  try {
                      val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
                      intent.addCategory("android.intent.category.DEFAULT")
@@ -93,7 +143,6 @@ class HomeFragment : Fragment() {
                  }
              }
         } else {
-            // Android < 11: Request READ_EXTERNAL_STORAGE
             if (ContextCompat.checkSelfPermission(
                     requireContext(),
                     Manifest.permission.READ_EXTERNAL_STORAGE
@@ -109,26 +158,6 @@ class HomeFragment : Fragment() {
     private fun observeViewModel() {
         viewModel.uiState.observe(viewLifecycleOwner) { documents ->
             adapter.updateList(documents)
-        }
-    }
-
-    private fun setupToolbar() {
-        binding.topAppBar.setOnMenuItemClickListener { menuItem ->
-            when (menuItem.itemId) {
-                R.id.action_refresh -> {
-                    checkPermissionAndLoad()
-                    Toast.makeText(context, "Refreshing...", Toast.LENGTH_SHORT).show()
-                    true
-                }
-                R.id.action_add_file -> {
-                     openMultipleDocumentsLauncher.launch(arrayOf("*/*"))
-                     true
-                }
-                R.id.action_search -> {
-                    true
-                }
-                else -> false
-            }
         }
     }
 

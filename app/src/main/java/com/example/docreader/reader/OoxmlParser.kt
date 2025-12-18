@@ -4,56 +4,96 @@ import android.content.Context
 import android.net.Uri
 import android.util.Xml
 import org.xmlpull.v1.XmlPullParser
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.io.InputStream
+import java.util.TreeMap
+import java.util.regex.Pattern
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
 object OoxmlParser {
 
-    fun parseDocx(context: Context, uri: Uri): String {
+    // --- Unzip Logic ---
+    fun unzip(context: Context, uri: Uri): File? {
+        // Create a unique cache dir for this file
+        val cacheDir = File(context.cacheDir, "ooxml_cache_${System.currentTimeMillis()}")
+        if (cacheDir.exists()) cacheDir.deleteRecursively()
+        cacheDir.mkdirs()
+
         return try {
-            val sb = StringBuilder()
-            sb.append("<html><head><style>body { font-family: sans-serif; padding: 16px; line-height: 1.6; } p { margin-bottom: 12px; }</style></head><body>")
-            
             context.contentResolver.openInputStream(uri)?.use { inputStream ->
                 val zipInputStream = ZipInputStream(inputStream)
                 var entry = zipInputStream.nextEntry
                 while (entry != null) {
-                    if (entry.name == "word/document.xml") {
-                        val content = parseWordXml(zipInputStream)
-                        sb.append(content)
-                        break
+                    val entryFile = File(cacheDir, entry.name)
+                    // Security check: prevents Zip Slip vulnerability
+                    if (!entryFile.canonicalPath.startsWith(cacheDir.canonicalPath)) {
+                        throw SecurityException("Invalid Zip Entry")
+                    }
+                    
+                    if (entry.isDirectory) {
+                        entryFile.mkdirs()
+                    } else {
+                        entryFile.parentFile?.mkdirs()
+                        FileOutputStream(entryFile).use { output ->
+                            zipInputStream.copyTo(output)
+                        }
                     }
                     zipInputStream.closeEntry()
                     entry = zipInputStream.nextEntry
                 }
             }
+            cacheDir
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    // --- Parsers working on File ---
+
+    fun parseDocx(rootDir: File): String {
+        return try {
+            val sb = StringBuilder()
+            sb.append("<html><head><style>body { font-family: sans-serif; padding: 16px; line-height: 1.6; } p { margin-bottom: 12px; }</style></head><body>")
+            
+            val docFile = File(rootDir, "word/document.xml")
+            if (docFile.exists()) {
+                FileInputStream(docFile).use { inputStream ->
+                    sb.append(parseWordXml(inputStream))
+                }
+            } else {
+                 sb.append("<p><i>Could not find document content.</i></p>")
+            }
+            
             sb.append("</body></html>")
             sb.toString()
         } catch (e: Exception) {
             "<html><body><h3>Error reading document</h3><p>${e.message}</p></body></html>"
         }
     }
-
+    
+    // Kept helper for backward compatibility logic if needed, but updated logic below
     private fun parseWordXml(inputStream: InputStream): String {
         val parser = Xml.newPullParser()
         parser.setInput(inputStream, null)
         val sb = StringBuilder()
         
         var eventType = parser.eventType
-        
         while (eventType != XmlPullParser.END_DOCUMENT) {
             val name = parser.name
             when (eventType) {
                 XmlPullParser.START_TAG -> {
-                    if (name == "w:p") {
+                    if (name != null && (name == "p" || name.endsWith(":p"))) {
                         sb.append("<p>")
-                    } else if (name == "w:t") {
+                    } else if (name != null && (name == "t" || name.endsWith(":t"))) {
                         sb.append(parser.nextText())
                     }
                 }
                 XmlPullParser.END_TAG -> {
-                    if (name == "w:p") {
+                    if (name != null && (name == "p" || name.endsWith(":p"))) {
                         sb.append("</p>")
                     }
                 }
@@ -63,35 +103,32 @@ object OoxmlParser {
         return sb.toString()
     }
 
-    fun parseXlsx(context: Context, uri: Uri): String {
+    fun parseXlsx(rootDir: File): String {
          return try {
             val sb = StringBuilder()
             sb.append("<html><head><style>table { border-collapse: collapse; width: 100%; } td, th { border: 1px solid #ddd; padding: 8px; }</style></head><body>")
             sb.append("<table>")
 
-            // XLSX Simplified:
-            // 1. We need to handle sharedStrings if possible, but that's complex (requires multi-pass or memory).
-            // 2. We'll fallback to showing raw values, which works for numbers.
-            // 3. If it's a blank screen, it might be because sheet1.xml isn't found or structure is different.
-            
-            var foundSheet = false
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                val zipInputStream = ZipInputStream(inputStream)
-                var entry = zipInputStream.nextEntry
-                while (entry != null) {
-                    if (entry.name.equals("xl/worksheets/sheet1.xml", ignoreCase = true)) {
-                        foundSheet = true
-                        val content = parseSheetXml(zipInputStream)
-                        sb.append(content)
-                        break
-                    }
-                    zipInputStream.closeEntry()
-                    entry = zipInputStream.nextEntry
+            // Scan xl/worksheets/ for sheet*.xml
+            val worksheetsDir = File(rootDir, "xl/worksheets")
+            if (worksheetsDir.exists() && worksheetsDir.isDirectory) {
+                val sheetFiles = worksheetsDir.listFiles { _, name -> 
+                     name.startsWith("sheet") && name.endsWith(".xml")
                 }
-            }
-            
-            if (!foundSheet) {
-                sb.append("<tr><td><i>Unable to find main worksheet (sheet1.xml). Complex Excel files are not fully supported yet.</i></td></tr>")
+                
+                if (sheetFiles != null && sheetFiles.isNotEmpty()) {
+                    // Sort naturally if possible, or just take first
+                    // Simplification: Load first sheet
+                    val firstSheet = sheetFiles.first()
+                    sb.append("<tr><td colspan='100%' style='background:#f0f0f0'><b>Sheet: ${firstSheet.name}</b></td></tr>")
+                    FileInputStream(firstSheet).use { inputStream ->
+                        sb.append(parseSheetXml(inputStream))
+                    }
+                } else {
+                    sb.append("<tr><td><i>No worksheets found.</i></td></tr>")
+                }
+            } else {
+                 sb.append("<tr><td><i>Invalid XLSX structure.</i></td></tr>")
             }
             
             sb.append("</table></body></html>")
@@ -105,77 +142,66 @@ object OoxmlParser {
         val parser = Xml.newPullParser()
         parser.setInput(inputStream, null)
         val sb = StringBuilder()
-        
         var eventType = parser.eventType
-        
         while (eventType != XmlPullParser.END_DOCUMENT) {
             val name = parser.name
             when (eventType) {
                 XmlPullParser.START_TAG -> {
-                    if (name == "row") {
-                        sb.append("<tr>")
-                    } else if (name == "v") { 
-                        // Simplified: treating value as text. 
-                        // If it's a shared string index, user sees a number. 
-                        // Better than blank.
-                        sb.append("<td>${parser.nextText()}</td>")
-                    } else if (name == "t") {
-                        // Inline string (sometimes used)
-                        sb.append("<td>${parser.nextText()}</td>")
-                    }
+                    if (name == "row") sb.append("<tr>")
+                    else if (name == "v" || name == "t") sb.append("<td>${parser.nextText()}</td>")
                 }
                 XmlPullParser.END_TAG -> {
-                    if (name == "row") {
-                        sb.append("</tr>")
-                    }
+                    if (name == "row") sb.append("</tr>")
                 }
             }
             eventType = parser.next()
         }
         return sb.toString()
     }
-    
-    fun parsePptx(context: Context, uri: Uri): String {
+
+    fun parsePptx(rootDir: File): String {
          return try {
             val sb = StringBuilder()
-            sb.append("<html><head><style>div.slide { border: 1px solid #ccc; margin: 20px; padding: 20px; min-height: 200px; background-color: #f9f9f9; } h3 { border-bottom: 1px solid #eee; }</style></head><body>")
+            sb.append("<html><head><style>div.slide { border: 1px solid #ccc; margin: 20px; padding: 20px; min-height: 200px; background-color: #f9f9f9; position: relative; } h3 { border-bottom: 1px solid #eee; } p { margin: 5px 0; } img { max-width: 100%; height: auto; display: block; margin: 10px 0; }</style></head><body>")
             
-            // PPTX often has slide1.xml, slide2.xml...
-            // We need to iterate all entries and match pattern.
-            // Note: ZipInputStream cannot be reset. We iterate once.
+            val slidesDir = File(rootDir, "ppt/slides")
+            val relsDir = File(rootDir, "ppt/slides/_rels")
+            val mediaDir = File(rootDir, "ppt/media")
             
-            var slideCount = 0
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                val zipInputStream = ZipInputStream(inputStream)
-                var entry = zipInputStream.nextEntry
-                while (entry != null) {
-                    if (entry.name.matches(Regex("ppt/slides/slide[0-9]+\\.xml"))) {
-                        slideCount++
-                        sb.append("<div class='slide'>")
-                        sb.append("<h3>Slide $slideCount</h3>")
-                        // We need to parse this specific entry *now* because we can't come back
-                        // But parseSlideXml consumes the stream? No, XmlPullParser usually doesn't close specific zip entry stream if we are careful.
-                        // However, ZipInputStream is tricky. Let's try to parse inline.
+            val slidesMap = TreeMap<Int, String>()
+            
+            if (slidesDir.exists() && slidesDir.isDirectory) {
+                val slideFiles = slidesDir.listFiles { _, name -> 
+                     name.startsWith("slide") && name.endsWith(".xml")
+                }
+                
+                slideFiles?.forEach { slideFile ->
+                    val name = slideFile.name // slide1.xml
+                    val number = name.replace("slide", "").replace(".xml", "").toIntOrNull() ?: 0
+                    if (number > 0) {
+                        // Find relationships for this slide (to find images)
+                        // slide1.xml -> _rels/slide1.xml.rels
+                        val relsFile = File(relsDir, "${slideFile.name}.rels")
+                        val imageMap = parseRelsForImages(relsFile) // Map<RelID, TargetFileName>
                         
-                        // To be safe with ZipInputStream, we read the entry into a String or byte array first?
-                        // Or just let XmlPullParser read until it hits END_DOCUMENT of that XML, 
-                        // which corresponds to end of entry content effectively?
-                        // XmlPullParser doesn't necessarily respect Zip boundaries unless wrapper handles it.
-                        // Ideally we define a wrapper that doesn't close the ZipStream.
-                        // For simplicity, let's assume valid XML structure allows parser to finish.
-                        
-                        sb.append(parseSlideXml(zipInputStream))
-                        sb.append("</div>")
+                        FileInputStream(slideFile).use { inputStream ->
+                            val content = parseSlideXml(inputStream, imageMap)
+                            slidesMap[number] = content
+                        }
                     }
-                    zipInputStream.closeEntry()
-                    entry = zipInputStream.nextEntry
                 }
             }
             
-            if (slideCount == 0) {
-                sb.append("<p><i>No slides found or format not supported.</i></p>")
+            if (slidesMap.isEmpty()) {
+                sb.append("<p><i>No slides found.</i></p>")
+            } else {
+                for ((num, content) in slidesMap) {
+                    sb.append("<div class='slide'>")
+                    sb.append("<h3>Slide $num</h3>")
+                    sb.append(content)
+                    sb.append("</div>")
+                }
             }
-            
             sb.append("</body></html>")
             sb.toString()
         } catch (e: Exception) {
@@ -183,36 +209,80 @@ object OoxmlParser {
         }
     }
     
-    private fun parseSlideXml(inputStream: InputStream): String {
+    private fun parseRelsForImages(relsFile: File): Map<String, String> {
+        val map = mutableMapOf<String, String>()
+        if (!relsFile.exists()) return map
+        
+        try {
+            FileInputStream(relsFile).use { inputStream ->
+                val parser = Xml.newPullParser()
+                parser.setInput(inputStream, null)
+                var eventType = parser.eventType
+                while (eventType != XmlPullParser.END_DOCUMENT) {
+                    if (eventType == XmlPullParser.START_TAG && parser.name.endsWith("Relationship")) {
+                        val id = parser.getAttributeValue(null, "Id")
+                        val type = parser.getAttributeValue(null, "Type")
+                        val target = parser.getAttributeValue(null, "Target")
+                        
+                        if (type != null && type.contains("image") && target != null) {
+                            // Target is usually "../media/image1.png"
+                            val fileName = target.substringAfterLast("/")
+                            map[id] = fileName
+                        }
+                    }
+                    eventType = parser.next()
+                }
+            }
+        } catch (e: Exception) { }
+        return map
+    }
+    
+    private fun parseSlideXml(inputStream: InputStream, imageMap: Map<String, String>): String {
         val parser = Xml.newPullParser()
-        // We tell parser to NOT close input stream
         parser.setInput(inputStream, null)
         val sb = StringBuilder()
-        
         var eventType = parser.eventType
-        // We must stop when we hit END_DOCUMENT for the *current XML file*, 
-        // effectively checking logical end. XmlPullParser returns END_DOCUMENT when stream ends? 
-        // For ZipEntry, read() returns -1.
         
         try {
             while (eventType != XmlPullParser.END_DOCUMENT) {
                 val name = parser.name
                 when (eventType) {
                     XmlPullParser.START_TAG -> {
-                        if (name == "a:t") { // Text Body
-                            val text = parser.nextText()
-                            if (text.isNotBlank()) {
-                                sb.append("<p>$text</p>")
+                        if (name != null) {
+                            if (name == "t" || name.endsWith(":t")) {
+                                val text = parser.nextText()
+                                if (text.isNotBlank()) sb.append("<p>$text</p>")
+                            } else if (name == "blip" || name.endsWith(":blip")) {
+                                // <a:blip r:embed="rId2">
+                                // We need to find the attribute that holds the relationship ID
+                                // Usually r:embed or r:link. XmlPullParser with no namespace processing
+                                // might return the attribute name with prefix.
+                                
+                                var embedId: String? = null
+                                for (i in 0 until parser.attributeCount) {
+                                    val attrName = parser.getAttributeName(i)
+                                    if (attrName.contains("embed")) {
+                                        embedId = parser.getAttributeValue(i)
+                                        break
+                                    }
+                                }
+                                
+                                if (embedId != null) {
+                                    val imageName = imageMap[embedId]
+                                    if (imageName != null) {
+                                        // Path relative to the unzipped root passed to WebView base URL
+                                        // Base URL is "file://.../cache_dir/"
+                                        // Images are in "ppt/media/image1.png"
+                                        sb.append("<img src='ppt/media/$imageName' />")
+                                    }
+                                }
                             }
                         }
                     }
                 }
                 eventType = parser.next()
             }
-        } catch (e: Exception) {
-            // End of entry might cause parser exception if it expects more but stream ends?
-            // Usually fine.
-        }
+        } catch (e: Exception) { }
         return sb.toString()
     }
 }

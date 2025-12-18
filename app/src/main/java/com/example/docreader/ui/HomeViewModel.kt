@@ -26,24 +26,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val uiState: LiveData<List<DocumentItem>> = _uiState
 
     private var currentFilter: FileType? = null
+    private var currentSearchQuery: String = ""
 
-    // We don't auto-load in init block anymore because we need to wait for permission
-    
     fun loadDocuments() {
         viewModelScope.launch {
             val docs = repository.getAllDocuments()
             allDocuments.clear()
             allDocuments.addAll(docs)
-            applyFilter()
+            applyFilterAndSearch()
         }
     }
     
-    // Updated import function to support manual addition
     fun importDocuments(uris: List<Uri>) {
         viewModelScope.launch {
             val newDocs = mutableListOf<DocumentEntity>()
             for (uri in uris) {
-                // Check if already exists in memory to avoid duplicates (Repository also handles persistence)
                 if (allDocuments.none { it.uri == uri.toString() }) {
                     repository.addDocument(uri)?.let {
                         newDocs.add(it)
@@ -51,8 +48,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
             if (newDocs.isNotEmpty()) {
-                allDocuments.addAll(0, newDocs) // Add to top
-                applyFilter()
+                allDocuments.addAll(0, newDocs)
+                applyFilterAndSearch()
             }
         }
     }
@@ -60,17 +57,31 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun setFilter(filter: FileType?) {
         if (currentFilter != filter) {
             currentFilter = filter
-            applyFilter()
+            applyFilterAndSearch()
         }
     }
+    
+    fun searchDocuments(query: String) {
+        currentSearchQuery = query
+        applyFilterAndSearch()
+    }
 
-    private fun applyFilter() {
-        val filteredList = if (currentFilter == null) {
-            allDocuments
-        } else {
-            allDocuments.filter { it.type == currentFilter }
+    private fun applyFilterAndSearch() {
+        var result = allDocuments.toList()
+        
+        // 1. Apply Filter
+        if (currentFilter != null) {
+            result = result.filter { it.type == currentFilter }
         }
-        _uiState.value = filteredList.map { it.toUiItem() }
+        
+        // 2. Apply Search
+        if (currentSearchQuery.isNotEmpty()) {
+            result = result.filter { 
+                it.name.contains(currentSearchQuery, ignoreCase = true) 
+            }
+        }
+        
+        _uiState.value = result.map { it.toUiItem() }
     }
 
     private fun DocumentEntity.toUiItem(): DocumentItem {
