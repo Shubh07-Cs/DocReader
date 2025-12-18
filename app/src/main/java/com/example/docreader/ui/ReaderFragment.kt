@@ -68,6 +68,7 @@ class ReaderFragment : Fragment() {
             findNavController().navigateUp()
         }
         
+        binding.readerToolbar.menu.clear()
         binding.readerToolbar.inflateMenu(R.menu.reader_menu)
         binding.readerToolbar.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {

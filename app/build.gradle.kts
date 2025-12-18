@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.docreader"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -27,14 +27,17 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "1.8"
     }
     buildFeatures {
         viewBinding = true
+    }
+    packagingOptions {
+        resources.excludes.add("META-INF/services/javax.xml.stream.XMLEventFactory")
     }
 }
 
@@ -46,9 +49,11 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
-    
-    // PDF Viewer removed - using native PdfRenderer
-    
+
+    // Apache POI for legacy Office formats
+    implementation("org.apache.poi:poi:5.2.5")
+    implementation("org.apache.poi:poi-scratchpad:5.2.5")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

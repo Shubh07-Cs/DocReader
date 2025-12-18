@@ -17,18 +17,18 @@ object OoxmlParser {
 
     // --- Unzip Logic ---
     fun unzip(context: Context, uri: Uri): File? {
-        // Create a unique cache dir for this file
         val cacheDir = File(context.cacheDir, "ooxml_cache_${System.currentTimeMillis()}")
         if (cacheDir.exists()) cacheDir.deleteRecursively()
         cacheDir.mkdirs()
 
         return try {
+            var hasEntries = false
             context.contentResolver.openInputStream(uri)?.use { inputStream ->
                 val zipInputStream = ZipInputStream(inputStream)
                 var entry = zipInputStream.nextEntry
                 while (entry != null) {
+                    hasEntries = true
                     val entryFile = File(cacheDir, entry.name)
-                    // Security check: prevents Zip Slip vulnerability
                     if (!entryFile.canonicalPath.startsWith(cacheDir.canonicalPath)) {
                         throw SecurityException("Invalid Zip Entry")
                     }
@@ -44,6 +44,11 @@ object OoxmlParser {
                     zipInputStream.closeEntry()
                     entry = zipInputStream.nextEntry
                 }
+            }
+            // If no entries were found, it's likely not a ZIP file (e.g., binary .xls)
+            if (!hasEntries) {
+                // Return null to indicate unzip failure/not a zip
+                return null
             }
             cacheDir
         } catch (e: Exception) {
@@ -75,7 +80,6 @@ object OoxmlParser {
         }
     }
     
-    // Kept helper for backward compatibility logic if needed, but updated logic below
     private fun parseWordXml(inputStream: InputStream): String {
         val parser = Xml.newPullParser()
         parser.setInput(inputStream, null)
@@ -109,7 +113,6 @@ object OoxmlParser {
             sb.append("<html><head><style>table { border-collapse: collapse; width: 100%; } td, th { border: 1px solid #ddd; padding: 8px; }</style></head><body>")
             sb.append("<table>")
 
-            // Scan xl/worksheets/ for sheet*.xml
             val worksheetsDir = File(rootDir, "xl/worksheets")
             if (worksheetsDir.exists() && worksheetsDir.isDirectory) {
                 val sheetFiles = worksheetsDir.listFiles { _, name -> 
@@ -117,8 +120,6 @@ object OoxmlParser {
                 }
                 
                 if (sheetFiles != null && sheetFiles.isNotEmpty()) {
-                    // Sort naturally if possible, or just take first
-                    // Simplification: Load first sheet
                     val firstSheet = sheetFiles.first()
                     sb.append("<tr><td colspan='100%' style='background:#f0f0f0'><b>Sheet: ${firstSheet.name}</b></td></tr>")
                     FileInputStream(firstSheet).use { inputStream ->
@@ -128,7 +129,10 @@ object OoxmlParser {
                     sb.append("<tr><td><i>No worksheets found.</i></td></tr>")
                 }
             } else {
-                 sb.append("<tr><td><i>Invalid XLSX structure.</i></td></tr>")
+                 // Check if it was a valid zip but missing XLSX structure, or just garbage.
+                 // But typically if we get here, it's a zip. 
+                 // If unzip returned null (non-zip), OfficeReaderEngine handles it separately.
+                 sb.append("<tr><td><i>Invalid XLSX structure. This file might be corrupted or encrypted.</i></td></tr>")
             }
             
             sb.append("</table></body></html>")
@@ -179,10 +183,8 @@ object OoxmlParser {
                     val name = slideFile.name // slide1.xml
                     val number = name.replace("slide", "").replace(".xml", "").toIntOrNull() ?: 0
                     if (number > 0) {
-                        // Find relationships for this slide (to find images)
-                        // slide1.xml -> _rels/slide1.xml.rels
                         val relsFile = File(relsDir, "${slideFile.name}.rels")
-                        val imageMap = parseRelsForImages(relsFile) // Map<RelID, TargetFileName>
+                        val imageMap = parseRelsForImages(relsFile) 
                         
                         FileInputStream(slideFile).use { inputStream ->
                             val content = parseSlideXml(inputStream, imageMap)
@@ -225,7 +227,6 @@ object OoxmlParser {
                         val target = parser.getAttributeValue(null, "Target")
                         
                         if (type != null && type.contains("image") && target != null) {
-                            // Target is usually "../media/image1.png"
                             val fileName = target.substringAfterLast("/")
                             map[id] = fileName
                         }
@@ -253,11 +254,6 @@ object OoxmlParser {
                                 val text = parser.nextText()
                                 if (text.isNotBlank()) sb.append("<p>$text</p>")
                             } else if (name == "blip" || name.endsWith(":blip")) {
-                                // <a:blip r:embed="rId2">
-                                // We need to find the attribute that holds the relationship ID
-                                // Usually r:embed or r:link. XmlPullParser with no namespace processing
-                                // might return the attribute name with prefix.
-                                
                                 var embedId: String? = null
                                 for (i in 0 until parser.attributeCount) {
                                     val attrName = parser.getAttributeName(i)
@@ -270,9 +266,6 @@ object OoxmlParser {
                                 if (embedId != null) {
                                     val imageName = imageMap[embedId]
                                     if (imageName != null) {
-                                        // Path relative to the unzipped root passed to WebView base URL
-                                        // Base URL is "file://.../cache_dir/"
-                                        // Images are in "ppt/media/image1.png"
                                         sb.append("<img src='ppt/media/$imageName' />")
                                     }
                                 }

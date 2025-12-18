@@ -1,7 +1,9 @@
 package com.example.docreader.reader
 
 import android.content.Context
+import android.database.Cursor
 import android.net.Uri
+import android.provider.OpenableColumns
 import android.view.ViewGroup
 import android.webkit.WebView
 import com.example.docreader.data.FileType
@@ -20,7 +22,6 @@ class OfficeReaderEngine : ReaderEngine {
     private var unzippedDir: File? = null
 
     override fun load(context: Context, uri: Uri, fileType: FileType, container: ViewGroup) {
-        // Setup WebView
         webView = WebView(context).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -30,43 +31,70 @@ class OfficeReaderEngine : ReaderEngine {
             settings.displayZoomControls = false
             settings.loadWithOverviewMode = true
             settings.useWideViewPort = true
-            
-            // Allow access to local files (needed for images extracted to cache)
             settings.allowFileAccess = true 
         }
         
         container.removeAllViews()
         container.addView(webView)
 
-        // Load Content Asynchronously
         loadJob = scope.launch {
-            try {
-                // 1. Unzip to cache first (Robust way)
-                unzippedDir = withContext(Dispatchers.IO) {
-                    OoxmlParser.unzip(context, uri)
-                }
-
-                // 2. Parse content from the unzipped directory
-                val rootDir = unzippedDir
-                if (rootDir != null) {
-                    val htmlContent = withContext(Dispatchers.IO) {
+            val htmlContent = withContext(Dispatchers.IO) {
+                // Reliable way to get filename from URI
+                val fileName = getFileName(context, uri).lowercase()
+                val isLegacy = fileName.endsWith(".doc") || fileName.endsWith(".xls") || fileName.endsWith(".ppt")
+                
+                if (isLegacy) {
+                    // Use Apache POI for legacy formats
+                    try {
+                        val inputStream = context.contentResolver.openInputStream(uri)
+                        if (inputStream != null) {
+                            when {
+                                fileName.endsWith(".doc") -> LegacyOoxmlParser.parseDoc(inputStream)
+                                fileName.endsWith(".xls") -> LegacyOoxmlParser.parseXls(inputStream)
+                                else -> LegacyOoxmlParser.parsePpt(inputStream)
+                            }
+                        } else {
+                            "<html><body>Could not open file stream.</body></html>"
+                        }
+                    } catch (e: Exception) {
+                        "<html><body>Error parsing legacy file: ${e.message}</body></html>"
+                    }
+                } else {
+                    // Use our lightweight native parser for modern formats
+                    unzippedDir = OoxmlParser.unzip(context, uri)
+                    val rootDir = unzippedDir
+                    if (rootDir != null) {
                         when (fileType) {
                             FileType.SHEETS -> OoxmlParser.parseXlsx(rootDir)
                             FileType.SLIDES -> OoxmlParser.parsePptx(rootDir)
                             else -> OoxmlParser.parseDocx(rootDir)
                         }
+                    } else {
+                         "<html><body>Failed to read document structure. File might be corrupted.</body></html>"
                     }
-                    
-                    // 3. Load with Base URL pointing to the unzipped directory
-                    val baseUrl = "file://${rootDir.absolutePath}/"
-                    webView?.loadDataWithBaseURL(baseUrl, htmlContent, "text/html", "UTF-8", null)
-                } else {
-                    webView?.loadData("<html><body>Failed to read document structure.</body></html>", "text/html", "UTF-8")
                 }
-            } catch (e: Exception) {
-                webView?.loadData("<html><body>Error: ${e.message}</body></html>", "text/html", "UTF-8")
+            }
+            
+            val baseUrl = if (unzippedDir != null) "file://${unzippedDir!!.absolutePath}/" else null
+            webView?.loadDataWithBaseURL(baseUrl, htmlContent, "text/html", "UTF-8", null)
+        }
+    }
+
+    private fun getFileName(context: Context, uri: Uri): String {
+        var name = ""
+        val cursor: Cursor? = context.contentResolver.query(uri, null, null, null, null)
+        cursor?.use {
+            if (it.moveToFirst()) {
+                val index = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (index != -1) {
+                    name = it.getString(index)
+                }
             }
         }
+        if (name.isEmpty()) {
+            name = uri.path ?: ""
+        }
+        return name
     }
 
     override fun onDestroy() {
@@ -74,7 +102,6 @@ class OfficeReaderEngine : ReaderEngine {
         webView?.destroy()
         webView = null
         
-        // Cleanup cache on destroy to save space
         scope.launch(Dispatchers.IO) {
             unzippedDir?.deleteRecursively()
         }
