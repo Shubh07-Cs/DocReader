@@ -21,7 +21,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.MenuHost
 import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
+import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -34,7 +34,7 @@ class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
     
-    private val viewModel: HomeViewModel by viewModels()
+    private val viewModel: HomeViewModel by activityViewModels()
     private lateinit var adapter: DocumentsAdapter
 
     private val requestPermissionLauncher = registerForActivityResult(
@@ -66,14 +66,9 @@ class HomeFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         setupRecyclerView()
         setupFilters()
-        // Removed explicit setupToolbar() listener logic because we are now using MenuProvider for better search integration
-        
-        // Setup Toolbar as ActionBar to support MenuProvider and SearchView
         (requireActivity() as? androidx.appcompat.app.AppCompatActivity)?.setSupportActionBar(binding.topAppBar)
-
         setupMenu()
         observeViewModel()
-        
         checkPermissionAndLoad()
     }
 
@@ -89,7 +84,7 @@ class HomeFragment : Fragment() {
                 searchView?.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
                     override fun onQueryTextSubmit(query: String?): Boolean {
                         viewModel.searchDocuments(query ?: "")
-                        searchView.clearFocus() // Hide keyboard
+                        searchView.clearFocus()
                         return true
                     }
 
@@ -162,16 +157,28 @@ class HomeFragment : Fragment() {
     }
 
     private fun setupFilters() {
-        binding.chipGroupFilters.setOnCheckedStateChangeListener { group, checkedIds ->
-             val filter = when (checkedIds.firstOrNull()) {
-                 R.id.chip_pdf -> FileType.PDF
-                 R.id.chip_word -> FileType.WORD
-                 R.id.chip_slides -> FileType.SLIDES
-                 R.id.chip_sheets -> FileType.SHEETS
-                 R.id.chip_text -> FileType.TEXT
-                 else -> null
+        binding.chipGroupFilters.setOnCheckedChangeListener { group, checkedId ->
+             viewModel.toggleBookmarkFilter(false)
+             viewModel.setFilter(null)
+             
+             when (checkedId) {
+                R.id.chip_bookmarks -> {
+                    viewModel.toggleBookmarkFilter(true)
+                }
+                R.id.chip_pdf -> viewModel.setFilter(FileType.PDF)
+                R.id.chip_word -> viewModel.setFilter(FileType.WORD)
+                R.id.chip_slides -> viewModel.setFilter(FileType.SLIDES)
+                R.id.chip_sheets -> viewModel.setFilter(FileType.SHEETS)
+                R.id.chip_text -> viewModel.setFilter(FileType.TEXT)
+                R.id.chip_all -> {
+                     // No specific type filter, show all
+                }
+                else -> {
+                    // This case handles when selection is cleared
+                    viewModel.toggleBookmarkFilter(false)
+                    viewModel.setFilter(null)
+                }
              }
-             viewModel.setFilter(filter)
         }
     }
 
@@ -180,7 +187,8 @@ class HomeFragment : Fragment() {
             val bundle = Bundle().apply {
                 putString("documentUri", item.uri)
                 putString("documentName", item.name)
-                putString("documentType", item.extension) 
+                putString("documentType", item.extension)
+                putBoolean("isBookmarked", item.isBookmarked)
             }
             findNavController().navigate(R.id.action_homeFragment_to_readerFragment, bundle)
         }

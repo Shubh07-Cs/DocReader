@@ -11,5 +11,6 @@ data class DocumentEntity(
     val name: String,
     val size: Long,
     val dateModified: Long,
-    val type: FileType
+    val type: FileType,
+    var isBookmarked: Boolean = false
 )

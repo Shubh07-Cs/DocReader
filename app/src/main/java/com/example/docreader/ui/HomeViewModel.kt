@@ -18,63 +18,68 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = DocumentRepository(application)
     
-    // Master list of all loaded documents
     private val allDocuments = mutableListOf<DocumentEntity>()
-    
-    // LiveData for UI
     private val _uiState = MutableLiveData<List<DocumentItem>>()
     val uiState: LiveData<List<DocumentItem>> = _uiState
 
     private var currentFilter: FileType? = null
     private var currentSearchQuery: String = ""
+    private var showOnlyBookmarked: Boolean = false
 
     fun loadDocuments() {
         viewModelScope.launch {
-            val docs = repository.getAllDocuments()
             allDocuments.clear()
-            allDocuments.addAll(docs)
-            applyFilterAndSearch()
+            allDocuments.addAll(repository.getAllDocuments())
+            applyFilters()
         }
     }
     
     fun importDocuments(uris: List<Uri>) {
         viewModelScope.launch {
-            val newDocs = mutableListOf<DocumentEntity>()
-            for (uri in uris) {
+            uris.forEach { uri ->
                 if (allDocuments.none { it.uri == uri.toString() }) {
-                    repository.addDocument(uri)?.let {
-                        newDocs.add(it)
-                    }
+                    repository.addDocument(uri)?.let { allDocuments.add(0, it) }
                 }
             }
-            if (newDocs.isNotEmpty()) {
-                allDocuments.addAll(0, newDocs)
-                applyFilterAndSearch()
-            }
+            applyFilters()
         }
     }
 
     fun setFilter(filter: FileType?) {
-        if (currentFilter != filter) {
-            currentFilter = filter
-            applyFilterAndSearch()
-        }
-    }
-    
-    fun searchDocuments(query: String) {
-        currentSearchQuery = query
-        applyFilterAndSearch()
+        currentFilter = filter
+        applyFilters()
     }
 
-    private fun applyFilterAndSearch() {
+    fun searchDocuments(query: String) {
+        currentSearchQuery = query
+        applyFilters()
+    }
+    
+    fun toggleBookmarkFilter(showOnly: Boolean) {
+        showOnlyBookmarked = showOnly
+        applyFilters()
+    }
+    
+    fun toggleBookmarkStatus(uri: String) {
+        val doc = allDocuments.find { it.uri == uri }
+        doc?.let {
+            it.isBookmarked = !it.isBookmarked
+            repository.setBookmarkStatus(uri, it.isBookmarked)
+            applyFilters() // Refresh list
+        }
+    }
+
+    private fun applyFilters() {
         var result = allDocuments.toList()
         
-        // 1. Apply Filter
+        if (showOnlyBookmarked) {
+            result = result.filter { it.isBookmarked }
+        }
+        
         if (currentFilter != null) {
             result = result.filter { it.type == currentFilter }
         }
         
-        // 2. Apply Search
         if (currentSearchQuery.isNotEmpty()) {
             result = result.filter { 
                 it.name.contains(currentSearchQuery, ignoreCase = true) 
@@ -91,7 +96,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             size = formatSize(this.size),
             date = formatDate(this.dateModified),
             mimeType = "", 
-            extension = this.type.name
+            extension = this.type.name,
+            isBookmarked = this.isBookmarked
         )
     }
 
