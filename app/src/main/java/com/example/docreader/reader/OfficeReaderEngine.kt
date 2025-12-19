@@ -39,12 +39,10 @@ class OfficeReaderEngine : ReaderEngine {
 
         loadJob = scope.launch {
             val htmlContent = withContext(Dispatchers.IO) {
-                // Reliable way to get filename from URI
                 val fileName = getFileName(context, uri).lowercase()
                 val isLegacy = fileName.endsWith(".doc") || fileName.endsWith(".xls") || fileName.endsWith(".ppt")
                 
                 if (isLegacy) {
-                    // Use Apache POI for legacy formats
                     try {
                         val inputStream = context.contentResolver.openInputStream(uri)
                         if (inputStream != null) {
@@ -60,7 +58,6 @@ class OfficeReaderEngine : ReaderEngine {
                         "<html><body>Error parsing legacy file: ${e.message}</body></html>"
                     }
                 } else {
-                    // Use our lightweight native parser for modern formats
                     unzippedDir = OoxmlParser.unzip(context, uri)
                     val rootDir = unzippedDir
                     if (rootDir != null) {

@@ -38,6 +38,8 @@ android {
     }
     packagingOptions {
         resources.excludes.add("META-INF/services/javax.xml.stream.XMLEventFactory")
+        // Required by PDFBox
+        resources.excludes.add("**/afm/*.afm")
     }
 }
 
@@ -50,11 +52,8 @@ dependencies {
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
 
-    // Apache POI for legacy Office formats
-    implementation("org.apache.poi:poi:5.2.5")
-    implementation("org.apache.poi:poi-scratchpad:5.2.5")
+    // PDFBox for PDF rendering and text extraction
+    implementation("com.tom-roush:pdfbox-android:2.0.25.0")
 
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
+    // Other dependencies remain
 }

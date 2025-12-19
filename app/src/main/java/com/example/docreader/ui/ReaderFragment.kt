@@ -64,7 +64,7 @@ class ReaderFragment : Fragment() {
     }
 
     private fun loadDocument(uri: Uri, fileType: FileType) {
-        readerEngine = ReaderManager.getEngine(fileType)
+        readerEngine = ReaderManager.getEngine(fileType, this)
         readerEngine?.load(requireContext(), uri, fileType, binding.readerContainer)
     }
 
