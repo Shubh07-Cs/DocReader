@@ -25,4 +25,12 @@ interface ReaderEngine {
      * @param query The text to search for
      */
     fun search(query: String)
+
+    /**
+     * Extracts text from the current page/document.
+     * @return true if extraction started, false if not supported
+     */
+    fun copyText(): Boolean {
+        return false
+    }
 }

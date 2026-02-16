@@ -11,10 +11,5 @@
         android:icon="@android:drawable/ic_popup_sync"
         android:title="Refresh"
         app:showAsAction="ifRoom" />
-    <item
-        android:id="@+id/action_search"
-        android:icon="@android:drawable/ic_menu_search"
-        android:title="Search"
-        app:showAsAction="ifRoom|collapseActionView"
-        app:actionViewClass="androidx.appcompat.widget.SearchView" />
+
 </menu>

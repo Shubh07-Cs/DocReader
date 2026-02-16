@@ -15,6 +15,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        multiDexEnabled = true
     }
 
     buildTypes {
@@ -36,10 +37,24 @@ android {
     buildFeatures {
         viewBinding = true
     }
+    
+    // 16KB Page Size Compatibility Configuration
     packagingOptions {
-        resources.excludes.add("META-INF/services/javax.xml.stream.XMLEventFactory")
-        // Required by PDFBox
-        resources.excludes.add("**/afm/*.afm")
+        jniLibs {
+            useLegacyPackaging = false
+        }
+        // Exclude problematic libraries that don't support 16KB alignment
+        resources.excludes.addAll(listOf(
+            "META-INF/services/javax.xml.stream.XMLEventFactory",
+            "META-INF/DEPENDENCIES",
+            "META-INF/NOTICE",
+            "META-INF/LICENSE",
+            "**/libc++_shared.so",
+            "**/libjniPdfium.so",
+            "**/libmodft2.so",
+            "**/libmodpdfium.so",
+            "**/libmodpng.so"
+        ))
     }
 }
 
@@ -52,8 +67,20 @@ dependencies {
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
 
-    // PDFBox for PDF rendering and text extraction
-    implementation("com.tom-roush:pdfbox-android:2.0.25.0")
+    // Alamin5G PDF Viewer - 16KB compatible PDF library
+    implementation("com.github.alamin5g:Alamin5G-PDF-Viewer:1.0.16")
 
-    // Other dependencies remain
+    // ML Kit Text Recognition for copying text from PDFs
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
+
+    // Apache POI for legacy Office formats and rich DOCX support
+    implementation("org.apache.poi:poi:5.2.5")
+    implementation("org.apache.poi:poi-ooxml:5.2.5")
+    implementation("org.apache.poi:poi-scratchpad:5.2.5")
+    implementation("javax.xml.stream:stax-api:1.0-2")
+    implementation("com.fasterxml.woodstox:woodstox-core:5.0.3")
+
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
 }

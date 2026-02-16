@@ -3,12 +3,14 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/colorSurface">
+    android:fitsSystemWindows="true"
+    android:background="?android:attr/colorBackground">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="?attr/colorSurface"
+        android:fitsSystemWindows="true"
         app:elevation="0dp">
 
         <com.google.android.material.appbar.MaterialToolbar
@@ -16,14 +18,42 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             app:title="@string/app_name"
+            app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge"
+            app:titleTextColor="?attr/colorOnSurface"
             app:menu="@menu/home_menu" />
+
+        <!-- Search Bar with elevation -->
+        <!-- Search View inside Card for Elevation and Styling -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="12dp"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="4dp"
+            android:backgroundTint="?attr/colorSurfaceContainerHigh"
+            app:strokeWidth="0dp">
+
+            <androidx.appcompat.widget.SearchView
+                android:id="@+id/searchView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:iconifiedByDefault="false"
+                app:queryHint="Search documents..."
+                app:queryBackground="@android:color/transparent"
+                android:background="@android:color/transparent"
+                app:searchIcon="@drawable/ic_search_24dp" 
+                app:defaultQueryHint="Search documents..." />
+
+        </com.google.android.material.card.MaterialCardView>
 
         <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:scrollbars="none"
             android:paddingHorizontal="16dp"
-            android:paddingBottom="8dp"
+            android:paddingBottom="16dp"
             android:clipToPadding="false">
 
             <com.google.android.material.chip.ChipGroup
@@ -32,14 +62,15 @@
                 android:layout_height="wrap_content"
                 app:singleLine="true"
                 app:selectionRequired="true"
-                app:singleSelection="true">
+                app:singleSelection="true"
+                app:chipSpacing="10dp">
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_all"
                     style="@style/Widget.Material3.Chip.Filter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="All"
+                    android:text="✨ All"
                     android:checked="true" />
 
                 <com.google.android.material.chip.Chip
@@ -47,47 +78,87 @@
                     style="@style/Widget.Material3.Chip.Filter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Bookmarks" />
+                    android:text="⭐ Bookmarks" />
                     
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_pdf"
                     style="@style/Widget.Material3.Chip.Filter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="PDF" />
+                    android:text="📄 PDF" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_word"
                     style="@style/Widget.Material3.Chip.Filter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Word" />
+                    android:text="📝 Word" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_slides"
                     style="@style/Widget.Material3.Chip.Filter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Slides" />
+                    android:text="📊 Slides" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_sheets"
                     style="@style/Widget.Material3.Chip.Filter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Sheets" />
+                    android:text="📈 Sheets" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_text"
                     style="@style/Widget.Material3.Chip.Filter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Text" />
+                    android:text="📃 Text" />
 
             </com.google.android.material.chip.ChipGroup>
         </HorizontalScrollView>
 
     </com.google.android.material.appbar.AppBarLayout>
+
+    <!-- Empty State View -->
+    <LinearLayout
+        android:id="@+id/emptyStateView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="48dp"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <ImageView
+            android:layout_width="140dp"
+            android:layout_height="140dp"
+            android:src="@drawable/ic_text"
+            android:alpha="0.25"
+            app:tint="?attr/colorPrimary"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="No documents yet"
+            android:textAppearance="?attr/textAppearanceHeadlineSmall"
+            android:textStyle="bold"
+            android:textColor="?attr/colorOnSurface"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Browse and select documents\nto get started"
+            android:textAppearance="?attr/textAppearanceBodyLarge"
+            android:textColor="?android:attr/textColorSecondary"
+            android:gravity="center"
+            android:lineSpacingExtra="4dp"/>
+
+    </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerViewDocuments"

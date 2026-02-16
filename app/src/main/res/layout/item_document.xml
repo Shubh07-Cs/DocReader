@@ -4,62 +4,120 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="8dp"
-    app:cardElevation="0dp"
-    app:strokeWidth="1dp"
-    app:strokeColor="#E0E0E0">
+    android:layout_marginBottom="16dp"
+    app:cardElevation="4dp"
+    app:cardCornerRadius="20dp"
+    app:strokeWidth="0dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="16dp">
+        android:layout_height="wrap_content">
 
-        <ImageView
-            android:id="@+id/icon_file_type"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:src="@android:drawable/ic_menu_edit"
+        <!-- Bold colored accent stripe on left -->
+        <View
+            android:id="@+id/accent_stripe"
+            android:layout_width="6dp"
+            android:layout_height="0dp"
+            android:background="@color/file_pdf"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:tint="?attr/colorPrimary" />
+            app:layout_constraintBottom_toBottomOf="parent"/>
 
+        <!-- Gradient overlay for premium look -->
+        <View
+            android:id="@+id/gradient_overlay"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:background="@drawable/bg_gradient"
+            android:alpha="0.03"
+            app:layout_constraintStart_toEndOf="@id/accent_stripe"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+
+        <!-- Icon container with larger circular colored background -->
+        <FrameLayout
+            android:id="@+id/icon_container"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:layout_marginStart="20dp"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="20dp"
+            android:elevation="2dp"
+            app:layout_constraintStart_toEndOf="@id/accent_stripe"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
+
+            <!-- Circular colored background -->
+            <View
+                android:id="@+id/icon_background"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_circular_icon"
+                android:alpha="0.20"/>
+
+            <!-- File type icon -->
+            <ImageView
+                android:id="@+id/icon_file_type"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_pdf"
+                app:tint="@color/file_pdf" />
+        </FrameLayout>
+
+        <!-- Document name -->
         <TextView
             android:id="@+id/text_doc_name"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="8dp"
             android:text="Document Name.pdf"
             android:textAppearance="?attr/textAppearanceTitleMedium"
-            android:maxLines="1"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:maxLines="2"
             android:ellipsize="end"
-            app:layout_constraintStart_toEndOf="@id/icon_file_type"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintEnd_toEndOf="@id/icon_bookmark" />
+            android:letterSpacing="0.01"
+            app:layout_constraintStart_toEndOf="@id/icon_container"
+            app:layout_constraintTop_toTopOf="@id/icon_container"
+            app:layout_constraintEnd_toStartOf="@id/icon_bookmark" />
 
+        <!-- Document info (size and time) -->
         <TextView
             android:id="@+id/text_doc_info"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:layout_marginTop="4dp"
-            android:text="2.5 MB • 10 mins ago"
-            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:layout_marginStart="20dp"
+            android:layout_marginTop="6dp"
+            android:layout_marginEnd="8dp"
+            android:text="2.5 MB  •  10 mins ago"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
             android:textColor="?android:attr/textColorSecondary"
-            app:layout_constraintStart_toEndOf="@id/icon_file_type"
+            android:textSize="13sp"
+            app:layout_constraintStart_toEndOf="@id/icon_container"
             app:layout_constraintTop_toBottomOf="@id/text_doc_name"
-            app:layout_constraintEnd_toEndOf="@id/icon_bookmark" />
+            app:layout_constraintBottom_toBottomOf="@id/icon_container"
+            app:layout_constraintEnd_toStartOf="@id/icon_bookmark" />
 
+        <!-- Bookmark icon -->
         <ImageView
             android:id="@+id/icon_bookmark"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@android:drawable/btn_star_big_on"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="20dp"
+            android:padding="8dp"
+            android:src="@android:drawable/btn_star_big_off"
+            android:background="?attr/selectableItemBackgroundBorderless"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:tint="?attr/colorPrimary"
-            android:visibility="gone"
+            app:tint="@color/text_secondary_light"
+            android:visibility="visible"
             tools:visibility="visible" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>

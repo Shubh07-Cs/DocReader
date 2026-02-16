@@ -1,10 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.DocReader" parent="Theme.Material3.DayNight.NoActionBar">
+    <!-- Light Theme -->
+    <style name="Theme.DocReader" parent="Theme.Material3.Light.NoActionBar">
         <!-- Brand colors -->
-        <item name="colorPrimary">@color/purple_500</item>
+        <item name="colorPrimary">@color/primary</item>
         <item name="colorOnPrimary">@color/white</item>
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorOnSecondary">@color/black</item>
+        <item name="colorPrimaryContainer">@color/primary_light</item>
+        <item name="colorSecondary">@color/secondary</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorTertiary">@color/accent</item>
+        
+        <!-- Surface colors -->
+        <item name="colorSurface">@color/surface_light</item>
+        <item name="colorOnSurface">@color/text_primary_light</item>
+        <item name="android:colorBackground">@color/background_light</item>
+        
+        <!-- Status bar -->
+        <item name="android:statusBarColor">@color/surface_light</item>
+        <item name="android:windowLightStatusBar">true</item>
+        
+        <!-- Edge to edge -->
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        
+        <!-- Shape appearances -->
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.DocReader.SmallComponent</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.DocReader.MediumComponent</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.DocReader.LargeComponent</item>
+    </style>
+    
+    <!-- Shape Appearances -->
+    <style name="ShapeAppearance.DocReader.SmallComponent" parent="ShapeAppearance.Material3.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">8dp</item>
+    </style>
+    
+    <style name="ShapeAppearance.DocReader.MediumComponent" parent="ShapeAppearance.Material3.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
+    </style>
+    
+    <style name="ShapeAppearance.DocReader.LargeComponent" parent="ShapeAppearance.Material3.LargeComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">16dp</item>
     </style>
 </resources>

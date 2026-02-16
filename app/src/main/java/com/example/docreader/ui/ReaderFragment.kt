@@ -94,6 +94,10 @@ class ReaderFragment : Fragment() {
                     updateBookmarkIcon(menuItem)
                     true
                 }
+                R.id.action_copy_text -> {
+                    readerEngine?.copyText()
+                    true
+                }
                 else -> false
             }
         }

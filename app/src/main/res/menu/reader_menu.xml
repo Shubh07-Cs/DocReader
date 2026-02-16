@@ -11,4 +11,9 @@
         android:icon="@android:drawable/star_off"
         android:title="Bookmark"
         app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_copy_text"
+        android:icon="@android:drawable/ic_menu_edit"
+        android:title="Copy Text"
+        app:showAsAction="ifRoom" />
 </menu>

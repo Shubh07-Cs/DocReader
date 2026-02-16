@@ -40,31 +40,86 @@ class OfficeReaderEngine : ReaderEngine {
         loadJob = scope.launch {
             val htmlContent = withContext(Dispatchers.IO) {
                 val fileName = getFileName(context, uri).lowercase()
-                val isLegacy = fileName.endsWith(".doc") || fileName.endsWith(".xls") || fileName.endsWith(".ppt")
+                val isCsv = fileName.endsWith(".csv")
+                val isDoc = fileName.endsWith(".doc")
+                val isDocx = fileName.endsWith(".docx")
+                val isXls = fileName.endsWith(".xls")
+                val isXlsx = fileName.endsWith(".xlsx")
+                val isLegacy = fileName.endsWith(".ppt") // Only PPT left in generic legacy check
                 
-                if (isLegacy) {
+                if (isCsv) {
+                   try {
+                       val inputStream = context.contentResolver.openInputStream(uri)
+                       if (inputStream != null) {
+                           CsvParser.parse(inputStream)
+                       } else {
+                           "<html><body>Could not open file stream.</body></html>"
+                       }
+                   } catch (e: Exception) {
+                       "<html><body>Error parsing CSV: ${e.message}</body></html>"
+                   }
+                } else if (isDoc) {
                     try {
                         val inputStream = context.contentResolver.openInputStream(uri)
                         if (inputStream != null) {
-                            when {
-                                fileName.endsWith(".doc") -> LegacyOoxmlParser.parseDoc(inputStream)
-                                fileName.endsWith(".xls") -> LegacyOoxmlParser.parseXls(inputStream)
-                                else -> LegacyOoxmlParser.parsePpt(inputStream)
-                            }
+                            WordToHtmlConverter.convertDoc(context, inputStream)
                         } else {
                             "<html><body>Could not open file stream.</body></html>"
                         }
                     } catch (e: Exception) {
-                        "<html><body>Error parsing legacy file: ${e.message}</body></html>"
+                        "<html><body>Error parsing DOC: ${e.message}</body></html>"
+                    }
+                } else if (isDocx) {
+                     try {
+                        val inputStream = context.contentResolver.openInputStream(uri)
+                        if (inputStream != null) {
+                            WordToHtmlConverter.convertDocx(context, inputStream)
+                        } else {
+                            "<html><body>Could not open file stream.</body></html>"
+                        }
+                    } catch (e: Exception) {
+                        "<html><body>Error parsing DOCX: ${e.message}</body></html>"
+                    }
+                } else if (isXls) {
+                    try {
+                        val inputStream = context.contentResolver.openInputStream(uri)
+                        if (inputStream != null) {
+                            ExcelToHtmlConverter.convertXls(context, inputStream)
+                        } else {
+                            "<html><body>Could not open file stream.</body></html>"
+                        }
+                    } catch (e: Exception) {
+                        "<html><body>Error parsing XLS: ${e.message}</body></html>"
+                    }
+                } else if (isXlsx) {
+                    try {
+                        val inputStream = context.contentResolver.openInputStream(uri)
+                        if (inputStream != null) {
+                            ExcelToHtmlConverter.convertXlsx(context, inputStream)
+                        } else {
+                            "<html><body>Could not open file stream.</body></html>"
+                        }
+                    } catch (e: Exception) {
+                        "<html><body>Error parsing XLSX: ${e.message}</body></html>"
+                    }
+                } else if (isLegacy) {
+                    try {
+                        val inputStream = context.contentResolver.openInputStream(uri)
+                        if (inputStream != null) {
+                            LegacyOoxmlParser.parsePpt(inputStream)
+                        } else {
+                            "<html><body>Could not open file stream.</body></html>"
+                        }
+                    } catch (e: Exception) {
+                        "<html><body>Error parsing legacy PPT: ${e.message}</body></html>"
                     }
                 } else {
                     unzippedDir = OoxmlParser.unzip(context, uri)
                     val rootDir = unzippedDir
                     if (rootDir != null) {
                         when (fileType) {
-                            FileType.SHEETS -> OoxmlParser.parseXlsx(rootDir)
-                            FileType.SLIDES -> OoxmlParser.parsePptx(rootDir)
-                            else -> OoxmlParser.parseDocx(rootDir)
+                            com.example.docreader.data.FileType.SLIDES -> OoxmlParser.parsePptx(rootDir)
+                            else -> "<html><body>Unsupported file format or corrupted file.</body></html>"
                         }
                     } else {
                          "<html><body>Failed to read document structure. File might be corrupted.</body></html>"

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <activity
+            android:name=".viewer.DocumentActivity"
+            android:label="MuPDF"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+            <!-- No intent filters needed here as the app module handles them -->
+        </activity>
+    </application>
+
+</manifest>

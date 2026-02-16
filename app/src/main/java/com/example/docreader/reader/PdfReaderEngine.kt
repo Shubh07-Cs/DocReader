@@ -1,145 +1,174 @@
 package com.example.docreader.reader
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
-import android.content.res.Configuration
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
-import android.graphics.Paint
 import android.net.Uri
-import android.text.Spannable
-import android.text.SpannableString
-import android.text.style.BackgroundColorSpan
-import android.view.Gravity
-import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.TextView
 import android.widget.Toast
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.example.docreader.data.FileType
-import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
-import com.tom_roush.pdfbox.pdmodel.PDDocument
-import com.tom_roush.pdfbox.rendering.PDFRenderer
-import com.tom_roush.pdfbox.text.PDFTextStripper
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.alamin5g.pdf.PDFView
+import com.alamin5g.pdf.listener.OnErrorListener
+import com.alamin5g.pdf.listener.OnLoadCompleteListener
+import com.alamin5g.pdf.listener.OnPageChangeListener
+
+
+import java.io.File
 
 class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
 
-    private var document: PDDocument? = null
-    private var loadJob: Job? = null
-    private val scope = CoroutineScope(Dispatchers.Main)
-    private var textContentByPage = mutableMapOf<Int, String>()
-    private var renderedViews = mutableMapOf<Int, TextView>()
-    private var scrollView: ScrollView? = null
+    private var pdfView: PDFView? = null
+
+    private var currentSearchQuery: String = ""
+    private var currentUri: Uri? = null
 
     override fun load(context: Context, uri: Uri, fileType: FileType, container: ViewGroup) {
-        PDFBoxResourceLoader.init(context)
-        
-        scrollView = ScrollView(context).apply {
-            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        // Create PDFView instance
+        pdfView = PDFView(context, null).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
         }
-        val linearLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            gravity = Gravity.CENTER_HORIZONTAL
-        }
-        scrollView?.addView(linearLayout)
+
+        // Add PDFView to container
         container.removeAllViews()
-        container.addView(scrollView)
+        container.addView(pdfView)
 
-        loadJob = scope.launch {
-            try {
-                withContext(Dispatchers.IO) {
-                    val inputStream = context.contentResolver.openInputStream(uri)
-                    document = PDDocument.load(inputStream)
-                }
 
-                document?.let { doc ->
-                    val textStripper = PDFTextStripper()
-                    for (i in 0 until doc.numberOfPages) {
-                        textStripper.startPage = i + 1
-                        textStripper.endPage = i + 1
-                        val text = textStripper.getText(doc)
-                        textContentByPage[i] = text
-                        
-                        // Render page as a TextView
-                        withContext(Dispatchers.Main) {
-                            val textView = createTextViewForPage(context, text, i)
-                            renderedViews[i] = textView
-                            linearLayout.addView(textView)
-                        }
-                    }
-                }
-            } catch (e: Exception) {
+
+
+        // Store URI for text extraction
+        currentUri = uri
+
+        // Load PDF from URI
+        pdfView?.fromUri(uri)
+            ?.enableSwipe(true)
+            ?.swipeHorizontal(false)
+            ?.enableDoubletap(true)
+            ?.defaultPage(0)
+            ?.enableAnnotationRendering(false)
+            ?.password(null)
+            //.scrollHandle(DefaultScrollHandle(context)) // DefaultScrollHandle not found in com.alamin5g.pdf.scroll
+            ?.enableAntialiasing(true)
+            ?.spacing(10) // spacing between pages in dp
+            ?.autoSpacing(false)
+            ?.pageFitPolicy(PDFView.FitPolicy.WIDTH)
+            ?.pageSnap(true)
+            ?.pageFling(true)
+            ?.setNightMode(false)
+            ?.onLoad(OnLoadCompleteListener { nbPages ->
+                // PDF loaded successfully
+                Toast.makeText(context, "PDF loaded: $nbPages pages", Toast.LENGTH_SHORT).show()
+            })
+            ?.onPageChange(OnPageChangeListener { page, pageCount ->
+                // Page changed - can be used for tracking current page
+            })
+            ?.onError(OnErrorListener { throwable ->
                 // Handle error
-            }
-        }
+                Toast.makeText(context, "Error loading PDF: ${throwable.message}", Toast.LENGTH_LONG).show()
+                throwable.printStackTrace()
+            })
+            ?.load()
     }
 
-    private fun createTextViewForPage(context: Context, text: String, pageNum: Int): TextView {
-        return TextView(context).apply {
-            this.text = text
-            setTextIsSelectable(true)
-            textSize = 14f
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply{
-                val margin = (16 * context.resources.displayMetrics.density).toInt()
-                setMargins(margin, margin / 2, margin, margin / 2)
-            }
-        }
-    }
-    
     override fun search(query: String) {
-        if (query.isEmpty()) {
-            // Clear highlights
-            renderedViews.forEach { (pageNum, textView) ->
-                textView.text = textContentByPage[pageNum]
-            }
-            return
+        // Store search query
+        currentSearchQuery = query
+        
+        // Note: Alamin5G PDF Viewer doesn't have built-in search UI
+        // Search functionality would need to be implemented separately
+        // For now, we'll just show a message
+        if (query.isNotBlank()) {
+            Toast.makeText(
+                parentFragment.requireContext(),
+                "Search functionality is being updated for the new PDF viewer",
+                Toast.LENGTH_SHORT
+            ).show()
         }
+    }
 
-        var firstMatchView: View? = null
-        renderedViews.forEach { (pageNum, textView) ->
-            val originalText = textContentByPage[pageNum] ?: ""
-            val spannable = SpannableString(originalText)
+    override fun copyText(): Boolean {
+        val context = parentFragment.context ?: return false
+        val pdfView = pdfView ?: return false
+        val uri = currentUri ?: return false
+
+        // Show loading indicator
+        Toast.makeText(context, "Extracting text...", Toast.LENGTH_SHORT).show()
+
+        try {
+            // Get current page
+            val currentPage = pdfView.currentPage
             
-            var index = originalText.indexOf(query, ignoreCase = true)
-            while (index >= 0) {
-                spannable.setSpan(
-                    BackgroundColorSpan(0xFFFFFF00.toInt()), // Yellow
-                    index,
-                    index + query.length,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-                if (firstMatchView == null) {
-                    firstMatchView = textView
-                }
-                index = originalText.indexOf(query, index + query.length, ignoreCase = true)
+            // Open PdfRenderer to render the page to a bitmap
+            val fileDescriptor = context.contentResolver.openFileDescriptor(uri, "r")
+            if (fileDescriptor != null) {
+                val pdfRenderer = android.graphics.pdf.PdfRenderer(fileDescriptor)
+                val page = pdfRenderer.openPage(currentPage)
+                
+                // create bitmap
+                val width = page.width * 2 // Higher resolution for better OCR
+                val height = page.height * 2
+                val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+                
+                // render
+                page.render(bitmap, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                
+                // Close page and renderer
+                page.close()
+                pdfRenderer.close()
+                fileDescriptor.close()
+                
+                // Process with ML Kit
+                processImageForText(context, bitmap)
+                return true
             }
-            textView.text = spannable
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(context, "Error extracting text: ${e.message}", Toast.LENGTH_SHORT).show()
         }
+        return false
+    }
 
-        // Scroll to the first match
-        firstMatchView?.let { view ->
-            scrollView?.post {
-                scrollView?.smoothScrollTo(0, view.top)
+    private fun processImageForText(context: Context, bitmap: android.graphics.Bitmap) {
+        val image = com.google.mlkit.vision.common.InputImage.fromBitmap(bitmap, 0)
+        val recognizer = com.google.mlkit.vision.text.TextRecognition.getClient(
+            com.google.mlkit.vision.text.latin.TextRecognizerOptions.DEFAULT_OPTIONS
+        )
+
+        recognizer.process(image)
+            .addOnSuccessListener { visionText ->
+                showTextDialog(context, visionText.text)
             }
+            .addOnFailureListener { e ->
+                Toast.makeText(context, "Text recognition failed: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun showTextDialog(context: Context, text: String) {
+        val builder = androidx.appcompat.app.AlertDialog.Builder(context)
+        builder.setTitle("Extracted Text")
+        
+        // Scrollable text view
+        val scrollView = android.widget.ScrollView(context)
+        val textView = android.widget.TextView(context)
+        textView.text = text
+        textView.setPadding(32, 32, 32, 32)
+        textView.setTextIsSelectable(true) // Enable system selection
+        scrollView.addView(textView)
+        builder.setView(scrollView)
+
+        builder.setPositiveButton("Copy All") { _, _ ->
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            val clip = android.content.ClipData.newPlainText("PDF Text", text)
+            clipboard.setPrimaryClip(clip)
+            Toast.makeText(context, "Text copied to clipboard", Toast.LENGTH_SHORT).show()
         }
+        builder.setNegativeButton("Close", null)
+        builder.show()
     }
 
     override fun onDestroy() {
-        loadJob?.cancel()
-        document?.close()
+        pdfView?.recycle()
+        pdfView = null
     }
 }

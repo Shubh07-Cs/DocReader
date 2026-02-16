@@ -68,8 +68,24 @@ class HomeFragment : Fragment() {
         setupFilters()
         (requireActivity() as? androidx.appcompat.app.AppCompatActivity)?.setSupportActionBar(binding.topAppBar)
         setupMenu()
+        setupSearch()
         observeViewModel()
         checkPermissionAndLoad()
+    }
+
+    private fun setupSearch() {
+        binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                viewModel.searchDocuments(query ?: "")
+                binding.searchView.clearFocus()
+                return true
+            }
+
+            override fun onQueryTextChange(newText: String?): Boolean {
+                viewModel.searchDocuments(newText ?: "")
+                return true
+            }
+        })
     }
 
     private fun setupMenu() {
@@ -77,22 +93,6 @@ class HomeFragment : Fragment() {
         menuHost.addMenuProvider(object : MenuProvider {
             override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
                 menuInflater.inflate(R.menu.home_menu, menu)
-                
-                val searchItem = menu.findItem(R.id.action_search)
-                val searchView = searchItem.actionView as? SearchView
-                
-                searchView?.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-                    override fun onQueryTextSubmit(query: String?): Boolean {
-                        viewModel.searchDocuments(query ?: "")
-                        searchView.clearFocus()
-                        return true
-                    }
-
-                    override fun onQueryTextChange(newText: String?): Boolean {
-                        viewModel.searchDocuments(newText ?: "")
-                        return true
-                    }
-                })
             }
 
             override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
