@@ -26,10 +26,22 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private var currentSearchQuery: String = ""
     private var showOnlyBookmarked: Boolean = false
 
+    private var loadJob: kotlinx.coroutines.Job? = null
+
     fun loadDocuments() {
-        viewModelScope.launch {
+        // Cancel any previous load to prevent race-condition duplicates
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            val docs = repository.getAllDocuments()
             allDocuments.clear()
-            allDocuments.addAll(repository.getAllDocuments())
+            // Final safety-net dedup by name+size
+            val seen = mutableSetOf<String>()
+            docs.forEach { doc ->
+                val key = "${doc.name}_${doc.size}"
+                if (seen.add(key)) {
+                    allDocuments.add(doc)
+                }
+            }
             applyFilters()
         }
     }
@@ -37,8 +49,16 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun importDocuments(uris: List<Uri>) {
         viewModelScope.launch {
             uris.forEach { uri ->
-                if (allDocuments.none { it.uri == uri.toString() }) {
-                    repository.addDocument(uri)?.let { allDocuments.add(0, it) }
+                // Check by URI and also by name+size to prevent the same file appearing twice
+                val uriStr = uri.toString()
+                if (allDocuments.none { it.uri == uriStr }) {
+                    repository.addDocument(uri)?.let { newDoc ->
+                        // Also check if a doc with same name+size already exists (e.g. from MediaStore)
+                        val duplicate = allDocuments.find { it.name == newDoc.name && it.size == newDoc.size }
+                        if (duplicate == null) {
+                            allDocuments.add(0, newDoc)
+                        }
+                    }
                 }
             }
             applyFilters()

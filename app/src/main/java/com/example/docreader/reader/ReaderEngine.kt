@@ -33,4 +33,12 @@ interface ReaderEngine {
     fun copyText(): Boolean {
         return false
     }
+
+    /**
+     * Toggles dark mode for the reader engine.
+     * @param isDarkMode True for dark mode, false for light mode.
+     */
+    fun setDarkMode(isDarkMode: Boolean) {
+        // Optional implementation
+    }
 }

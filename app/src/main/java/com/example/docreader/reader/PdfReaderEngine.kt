@@ -11,8 +11,10 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.example.docreader.data.FileType
@@ -38,11 +40,21 @@ class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
     private val selectedIndices = mutableSetOf<Int>()
     private var anchorIndex = -1
 
-    // Paint for highlight
+    // Paint for selection highlight
     private val highlightPaint = Paint().apply {
-        color = Color.parseColor("#80FFFF00")
+        color = Color.parseColor("#80144B54")
         style = Paint.Style.FILL
     }
+
+    // Paint for search highlight
+    private val searchHighlightPaint = Paint().apply {
+        color = Color.parseColor("#90FF8C00") // Orange for search matches
+        style = Paint.Style.FILL
+    }
+
+    // --- Search state ---
+    private var searchMatchIndices = mutableListOf<Int>()
+    private var currentSearchQuery: String = ""
 
     // Cached onDraw page dimensions for coordinate translation
     private var lastRenderedPageWidth = 0f
@@ -126,6 +138,10 @@ class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
         }
 
         // Load PDF
+        loadPdfWithPassword(context, uri, null)
+    }
+
+    private fun loadPdfWithPassword(context: Context, uri: Uri, password: String?) {
         pdfView?.fromUri(uri)
             ?.defaultPage(0)
             ?.onLoad { nbPages ->
@@ -133,14 +149,32 @@ class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
             }
             ?.onPageChange { page, _ ->
                 clearSelection()
+                searchMatchIndices.clear()
                 preloadWordsForPage(uri, page)
             }
             ?.onDraw { canvas, pageWidth, pageHeight, displayedPage ->
                 lastRenderedPageWidth = pageWidth
                 lastRenderedPageHeight = pageHeight
 
-                // Draw yellow highlights for selected words
                 val currentPage = pdfView?.currentPage ?: -1
+
+                // Draw search highlights
+                if (displayedPage == currentPage && searchMatchIndices.isNotEmpty()) {
+                    for (idx in searchMatchIndices) {
+                        if (idx < pageWords.size) {
+                            val rect = pageWords[idx].bounds
+                            val mapped = RectF(
+                                rect.left * pageWidth,
+                                rect.top * pageHeight,
+                                rect.right * pageWidth,
+                                rect.bottom * pageHeight
+                            )
+                            canvas.drawRect(mapped, searchHighlightPaint)
+                        }
+                    }
+                }
+
+                // Draw selection highlights
                 if (displayedPage == currentPage && selectedIndices.isNotEmpty()) {
                     for (idx in selectedIndices) {
                         if (idx < pageWords.size) {
@@ -160,19 +194,66 @@ class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
                 onLongPressDetected(context, e)
             }
             ?.onError { throwable ->
-                Toast.makeText(context, "Error loading PDF: ${throwable.message}", Toast.LENGTH_LONG).show()
-                throwable.printStackTrace()
+                handlePdfError(context, uri, throwable)
             }
             ?.enableSwipe(true)
             ?.swipeHorizontal(false)
             ?.enableDoubletap(true)
             ?.enableAnnotationRendering(true)
-            ?.password(null)
+            ?.password(password)
             ?.spacing(10)
             ?.pageFitPolicy(FitPolicy.WIDTH)
             ?.fitEachPage(true)
             ?.nightMode(false)
             ?.load()
+    }
+
+    private fun handlePdfError(context: Context, uri: Uri, t: Throwable) {
+        val message = t.message?.lowercase() ?: ""
+
+        val isPasswordError = message.contains("password") ||
+                message.contains("encrypted") ||
+                message.contains("decrypt")
+
+        if (isPasswordError) {
+            showPasswordDialog(context, uri)
+        } else {
+            Toast.makeText(context, "Error: ${t.message}", Toast.LENGTH_LONG).show()
+            t.printStackTrace()
+        }
+    }
+
+    private fun showPasswordDialog(context: Context, uri: Uri) {
+        val inputField = EditText(context).apply {
+            hint = "Enter PDF password"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                    android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setPadding(48, 32, 48, 32)
+        }
+
+        val container = FrameLayout(context).apply {
+            val dp24 = (24 * resources.displayMetrics.density).toInt()
+            setPadding(dp24, 0, dp24, 0)
+            addView(inputField)
+        }
+
+        AlertDialog.Builder(context)
+            .setTitle("Password Required")
+            .setMessage("This PDF is password protected. Please enter the password to open it.")
+            .setView(container)
+            .setPositiveButton("Open") { _, _ ->
+                val enteredPassword = inputField.text.toString()
+                if (enteredPassword.isNotBlank()) {
+                    loadPdfWithPassword(context, uri, enteredPassword)
+                } else {
+                    Toast.makeText(context, "Password cannot be empty", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setCancelable(false)
+            .show()
     }
 
     // ─── Long Press + Drag Selection ──────────────────────────────
@@ -300,6 +381,10 @@ class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
                 val words = extractWordsFromUri(uri, pageIndex)
                 pageWords = words ?: emptyList()
                 wordsLoadedForPage = pageIndex
+                // Re-run search on newly loaded page if a search query is active
+                if (currentSearchQuery.isNotBlank()) {
+                    performSearchOnCurrentPage()
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
                 pageWords = emptyList()
@@ -403,12 +488,56 @@ class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
     }
 
     override fun search(query: String) {
-        if (query.isNotBlank()) {
+        currentSearchQuery = query
+        if (query.isBlank()) {
+            clearSearchHighlights()
+            return
+        }
+        performSearchOnCurrentPage()
+    }
+
+    private fun performSearchOnCurrentPage() {
+        searchMatchIndices.clear()
+        if (currentSearchQuery.isBlank() || pageWords.isEmpty()) {
+            pdfView?.invalidate()
+            return
+        }
+
+        val lowerQuery = currentSearchQuery.lowercase()
+        for (i in pageWords.indices) {
+            if (pageWords[i].word.lowercase().contains(lowerQuery)) {
+                searchMatchIndices.add(i)
+            }
+        }
+
+        pdfView?.invalidate()
+
+        val context = parentFragment.context ?: return
+        if (searchMatchIndices.isNotEmpty()) {
             Toast.makeText(
-                parentFragment.requireContext(),
-                "Search is not yet supported for PDF",
+                context,
+                "Found ${searchMatchIndices.size} match(es) on this page",
                 Toast.LENGTH_SHORT
             ).show()
+        } else {
+            Toast.makeText(
+                context,
+                "No matches found on this page",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    private fun clearSearchHighlights() {
+        searchMatchIndices.clear()
+        pdfView?.invalidate()
+    }
+
+    override fun setDarkMode(isDarkMode: Boolean) {
+        if (isDarkMode) {
+            pdfView?.setBackgroundColor(Color.parseColor("#121212"))
+        } else {
+            pdfView?.setBackgroundColor(Color.parseColor("#E0E0E0"))
         }
     }
 

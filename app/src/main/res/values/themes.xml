@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Light Theme -->
-    <style name="Theme.DocReader" parent="Theme.Material3.Light.NoActionBar">
+    <!-- Base application theme that supports DayNight (Dark/Light Mode) -->
+    <style name="Theme.DocReader" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Brand colors -->
         <item name="colorPrimary">@color/primary</item>
         <item name="colorOnPrimary">@color/white</item>
@@ -11,9 +11,10 @@
         <item name="colorTertiary">@color/accent</item>
         
         <!-- Surface colors -->
-        <item name="colorSurface">@color/surface_light</item>
-        <item name="colorOnSurface">@color/text_primary_light</item>
-        <item name="android:colorBackground">@color/background_light</item>
+        <!-- In DayNight, these should optimally point to adaptive colors. 
+             But if these are fixed '@color/' resources, we should just let Material3 handle 
+             default backgrounds or ensure 'day/night' color resources exist. -->
+        <!-- Removing hardcoded light surface/background so DayNight works automatically -->
         
         <!-- Status bar -->
         <item name="android:statusBarColor">@color/surface_light</item>

@@ -1,6 +1,7 @@
 package com.example.docreader.ui
 
 import android.content.Context
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
 import android.view.KeyEvent
@@ -10,7 +11,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
-import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -31,6 +31,7 @@ class ReaderFragment : Fragment() {
     private var fileType: FileType = FileType.UNKNOWN
     private var documentUri: String? = null
     private var isBookmarked: Boolean = false
+    private var isDarkMode: Boolean = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -59,6 +60,10 @@ class ReaderFragment : Fragment() {
                 FileType.UNKNOWN
             }
 
+            // Detect system theme
+            val nightModeFlags = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+            isDarkMode = nightModeFlags == Configuration.UI_MODE_NIGHT_YES
+
             loadDocument(uri, fileType)
         }
     }
@@ -66,6 +71,8 @@ class ReaderFragment : Fragment() {
     private fun loadDocument(uri: Uri, fileType: FileType) {
         readerEngine = ReaderManager.getEngine(fileType, this)
         readerEngine?.load(requireContext(), uri, fileType, binding.readerContainer)
+        // Apply initial dark mode
+        readerEngine?.setDarkMode(isDarkMode)
     }
 
     private fun setupToolbar(title: String) {
@@ -77,15 +84,12 @@ class ReaderFragment : Fragment() {
         binding.readerToolbar.menu.clear()
         binding.readerToolbar.inflateMenu(R.menu.reader_menu)
         updateBookmarkIcon(binding.readerToolbar.menu.findItem(R.id.action_bookmark))
+        updateDarkModeTitle(binding.readerToolbar.menu.findItem(R.id.action_dark_mode))
 
         binding.readerToolbar.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.action_search_doc -> {
-                    if (fileType == FileType.PDF) {
-                        Toast.makeText(context, "Search not supported for PDF in this mode.", Toast.LENGTH_SHORT).show()
-                    } else {
-                        showSearchBar()
-                    }
+                    showSearchBar()
                     true
                 }
                 R.id.action_bookmark -> {
@@ -98,6 +102,12 @@ class ReaderFragment : Fragment() {
                     readerEngine?.copyText()
                     true
                 }
+                R.id.action_dark_mode -> {
+                    isDarkMode = !isDarkMode
+                    readerEngine?.setDarkMode(isDarkMode)
+                    updateDarkModeTitle(menuItem)
+                    true
+                }
                 else -> false
             }
         }
@@ -105,9 +115,15 @@ class ReaderFragment : Fragment() {
         setupSearchLogic()
     }
     
-    private fun updateBookmarkIcon(item: MenuItem) {
+    private fun updateBookmarkIcon(item: MenuItem?) {
+        if (item == null) return
         val iconRes = if (isBookmarked) android.R.drawable.btn_star_big_on else android.R.drawable.btn_star_big_off
         item.icon = ContextCompat.getDrawable(requireContext(), iconRes)
+    }
+
+    private fun updateDarkModeTitle(item: MenuItem?) {
+        if (item == null) return
+        item.title = if (isDarkMode) "Light Mode" else "Dark Mode"
     }
 
     private fun showSearchBar() {

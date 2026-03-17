@@ -27,19 +27,35 @@ class DocumentRepository(private val context: Context) {
         val scannedDocs = scanMediaStore(bookmarkedUris)
         val importedDocs = getManuallyImportedDocuments(bookmarkedUris)
 
-        // De-duplicate using a combination of name and size as a key.
+        // De-duplicate using a combination of name+size as primary key and URI as secondary.
         val combinedDocs = mutableMapOf<String, DocumentEntity>()
+        val seenUris = mutableSetOf<String>()
 
         // Add all scanned docs first.
         scannedDocs.forEach { doc ->
             val key = "${doc.name}_${doc.size}"
-            combinedDocs[key] = doc
+            if (!seenUris.contains(doc.uri)) {
+                seenUris.add(doc.uri)
+                combinedDocs[key] = doc
+            }
         }
 
         // Add imported docs only if they don't already exist.
+        // If a name_size match exists, merge bookmark status (keep true if either is bookmarked).
         importedDocs.forEach { doc ->
             val key = "${doc.name}_${doc.size}"
-            if (!combinedDocs.containsKey(key)) {
+            if (seenUris.contains(doc.uri)) {
+                // Same URI already seen, skip
+                return@forEach
+            }
+            seenUris.add(doc.uri)
+            val existing = combinedDocs[key]
+            if (existing != null) {
+                // Same file by name+size — merge bookmark: if either is bookmarked, keep it bookmarked
+                if (doc.isBookmarked && !existing.isBookmarked) {
+                    existing.isBookmarked = true
+                }
+            } else {
                 combinedDocs[key] = doc
             }
         }

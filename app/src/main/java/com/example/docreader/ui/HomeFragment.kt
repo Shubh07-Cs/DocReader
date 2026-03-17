@@ -16,6 +16,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.SearchView
 import androidx.core.content.ContextCompat
 import androidx.core.view.MenuHost
@@ -36,6 +37,8 @@ class HomeFragment : Fragment() {
     
     private val viewModel: HomeViewModel by activityViewModels()
     private lateinit var adapter: DocumentsAdapter
+    
+    private var isDarkModeEnabled = false
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -64,6 +67,11 @@ class HomeFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        
+        // Check current app theme state
+        val currentNightMode = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
+        isDarkModeEnabled = currentNightMode == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        
         setupRecyclerView()
         setupFilters()
         (requireActivity() as? androidx.appcompat.app.AppCompatActivity)?.setSupportActionBar(binding.topAppBar)
@@ -93,6 +101,8 @@ class HomeFragment : Fragment() {
         menuHost.addMenuProvider(object : MenuProvider {
             override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
                 menuInflater.inflate(R.menu.home_menu, menu)
+                val darkModeItem = menu.findItem(R.id.action_dark_mode)
+                darkModeItem?.title = if (isDarkModeEnabled) "Light Mode" else "Dark Mode"
             }
 
             override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
@@ -104,6 +114,15 @@ class HomeFragment : Fragment() {
                     }
                     R.id.action_add_file -> {
                         openMultipleDocumentsLauncher.launch(arrayOf("*/*"))
+                        true
+                    }
+                    R.id.action_dark_mode -> {
+                        isDarkModeEnabled = !isDarkModeEnabled
+                        if (isDarkModeEnabled) {
+                            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+                        } else {
+                            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+                        }
                         true
                     }
                     else -> false
