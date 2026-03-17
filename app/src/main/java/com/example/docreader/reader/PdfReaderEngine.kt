@@ -22,6 +22,7 @@ import com.github.barteksc.pdfviewer.PDFView
 import com.github.barteksc.pdfviewer.util.FitPolicy
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -55,6 +56,20 @@ class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
     // --- Search state ---
     private var searchMatchIndices = mutableListOf<Int>()
     private var currentSearchQuery: String = ""
+    
+    // --- Global search state ---
+    data class SearchMatch(val pageIndex: Int, val wordIndex: Int)
+    private var isSearching = false
+    private var globalSearchMatches: List<SearchMatch> = emptyList()
+    private var currentMatchIndex: Int = -1
+    private var searchJob: kotlinx.coroutines.Job? = null
+    private var searchCallback: ((Int, Int) -> Unit)? = null
+
+    // Paint for active search highlight
+    private val activeSearchHighlightPaint = Paint().apply {
+        color = Color.parseColor("#D0FFE066") // Bright Yellow for active match
+        style = Paint.Style.FILL
+    }
 
     // Cached onDraw page dimensions for coordinate translation
     private var lastRenderedPageWidth = 0f
@@ -160,6 +175,10 @@ class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
 
                 // Draw search highlights
                 if (displayedPage == currentPage && searchMatchIndices.isNotEmpty()) {
+                    val activeWordIndex = if (currentMatchIndex in globalSearchMatches.indices && globalSearchMatches[currentMatchIndex].pageIndex == displayedPage) {
+                        globalSearchMatches[currentMatchIndex].wordIndex
+                    } else -1
+
                     for (idx in searchMatchIndices) {
                         if (idx < pageWords.size) {
                             val rect = pageWords[idx].bounds
@@ -169,7 +188,8 @@ class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
                                 rect.right * pageWidth,
                                 rect.bottom * pageHeight
                             )
-                            canvas.drawRect(mapped, searchHighlightPaint)
+                            val paintToUse = if (idx == activeWordIndex) activeSearchHighlightPaint else searchHighlightPaint
+                            canvas.drawRect(mapped, paintToUse)
                         }
                     }
                 }
@@ -381,9 +401,9 @@ class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
                 val words = extractWordsFromUri(uri, pageIndex)
                 pageWords = words ?: emptyList()
                 wordsLoadedForPage = pageIndex
-                // Re-run search on newly loaded page if a search query is active
-                if (currentSearchQuery.isNotBlank()) {
-                    performSearchOnCurrentPage()
+                // Re-run highlight logic on newly loaded page if search is active
+                if (currentSearchQuery.isNotBlank() || isSearching) {
+                    updateHighlightsForCurrentPage()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -489,16 +509,63 @@ class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
 
     override fun search(query: String) {
         currentSearchQuery = query
+        searchJob?.cancel()
+        
         if (query.isBlank()) {
+            isSearching = false
+            globalSearchMatches = emptyList()
+            currentMatchIndex = -1
             clearSearchHighlights()
+            searchCallback?.invoke(0, 0)
             return
         }
-        performSearchOnCurrentPage()
+
+        val context = parentFragment.context ?: return
+        val uri = currentUri ?: return
+        val pageCount = pdfView?.pageCount ?: 0
+        if (pageCount == 0) return
+        
+        isSearching = true
+        searchJob = parentFragment.lifecycleScope.launch(Dispatchers.Default) {
+             val matches = mutableListOf<SearchMatch>()
+             val lowerQuery = query.lowercase()
+             
+             for (page in 0 until pageCount) {
+                 if (!isActive) break
+                 
+                 val wordsOnPage = try {
+                     extractWordsFromUri(uri, page) ?: emptyList()
+                 } catch (e: Exception) {
+                     emptyList()
+                 }
+                 
+                 for (i in wordsOnPage.indices) {
+                     if (wordsOnPage[i].word.lowercase().contains(lowerQuery)) {
+                         matches.add(SearchMatch(pageIndex = page, wordIndex = i))
+                     }
+                 }
+             }
+             
+             if (!isActive) return@launch
+             
+             withContext(Dispatchers.Main) {
+                 globalSearchMatches = matches
+                 if (matches.isNotEmpty()) {
+                     currentMatchIndex = 0
+                     updateSearchUiAndJump()
+                 } else {
+                     currentMatchIndex = -1
+                     clearSearchHighlights()
+                     searchCallback?.invoke(0, 0)
+                     Toast.makeText(context, "No matches found", Toast.LENGTH_SHORT).show()
+                 }
+             }
+        }
     }
 
-    private fun performSearchOnCurrentPage() {
+    private fun updateHighlightsForCurrentPage() {
         searchMatchIndices.clear()
-        if (currentSearchQuery.isBlank() || pageWords.isEmpty()) {
+        if (currentSearchQuery.isBlank() || pageWords.isEmpty() || !isSearching) {
             pdfView?.invalidate()
             return
         }
@@ -509,23 +576,38 @@ class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
                 searchMatchIndices.add(i)
             }
         }
-
         pdfView?.invalidate()
-
-        val context = parentFragment.context ?: return
-        if (searchMatchIndices.isNotEmpty()) {
-            Toast.makeText(
-                context,
-                "Found ${searchMatchIndices.size} match(es) on this page",
-                Toast.LENGTH_SHORT
-            ).show()
-        } else {
-            Toast.makeText(
-                context,
-                "No matches found on this page",
-                Toast.LENGTH_SHORT
-            ).show()
+    }
+    
+    private fun updateSearchUiAndJump() {
+        if (globalSearchMatches.isEmpty() || currentMatchIndex !in globalSearchMatches.indices) return
+        
+        val match = globalSearchMatches[currentMatchIndex]
+        searchCallback?.invoke(currentMatchIndex, globalSearchMatches.size)
+        
+        // Jump to page (triggers onPageChanged -> loadWordsForPage -> updateHighlightsForCurrentPage)
+        pdfView?.jumpTo(match.pageIndex)
+        
+        // If we are already on the page, jumpTo might not trigger onPageChanged
+        if (pdfView?.currentPage == match.pageIndex) {
+            updateHighlightsForCurrentPage()
         }
+    }
+
+    override fun findNext() {
+        if (globalSearchMatches.isEmpty()) return
+        currentMatchIndex = (currentMatchIndex + 1) % globalSearchMatches.size
+        updateSearchUiAndJump()
+    }
+
+    override fun findPrevious() {
+        if (globalSearchMatches.isEmpty()) return
+        currentMatchIndex = if (currentMatchIndex - 1 < 0) globalSearchMatches.size - 1 else currentMatchIndex - 1
+        updateSearchUiAndJump()
+    }
+
+    override fun setSearchCallback(callback: (current: Int, total: Int) -> Unit) {
+        this.searchCallback = callback
     }
 
     private fun clearSearchHighlights() {

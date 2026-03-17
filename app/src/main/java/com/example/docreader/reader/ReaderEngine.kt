@@ -41,4 +41,20 @@ interface ReaderEngine {
     fun setDarkMode(isDarkMode: Boolean) {
         // Optional implementation
     }
+
+    /**
+     * Finds the next match in a global search.
+     */
+    fun findNext() {}
+
+    /**
+     * Finds the previous match in a global search.
+     */
+    fun findPrevious() {}
+
+    /**
+     * Sets a callback to receive search progress/results.
+     * @param callback A function called with (currentIndex, totalMatches).
+     */
+    fun setSearchCallback(callback: (current: Int, total: Int) -> Unit) {}
 }

@@ -8,8 +8,13 @@
         app:showAsAction="ifRoom" />
     <item
         android:id="@+id/action_bookmark"
-        android:icon="@android:drawable/star_off"
+        android:icon="@android:drawable/btn_star_big_off"
         android:title="Bookmark"
+        app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_share_doc"
+        android:icon="@android:drawable/ic_menu_share"
+        android:title="Share"
         app:showAsAction="ifRoom" />
     <item
         android:id="@+id/action_copy_text"

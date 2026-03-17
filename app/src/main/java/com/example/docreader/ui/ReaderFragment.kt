@@ -1,6 +1,7 @@
 package com.example.docreader.ui
 
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
@@ -71,6 +72,22 @@ class ReaderFragment : Fragment() {
     private fun loadDocument(uri: Uri, fileType: FileType) {
         readerEngine = ReaderManager.getEngine(fileType, this)
         readerEngine?.load(requireContext(), uri, fileType, binding.readerContainer)
+        
+        // Listen for search updates
+        readerEngine?.setSearchCallback { current, total ->
+            if (total > 0) {
+                binding.searchCountText.text = "${current + 1}/$total"
+                binding.searchCountText.visibility = View.VISIBLE
+                binding.btnSearchNext.visibility = View.VISIBLE
+                binding.btnSearchPrev.visibility = View.VISIBLE
+            } else {
+                binding.searchCountText.text = "0/0"
+                binding.searchCountText.visibility = View.VISIBLE
+                binding.btnSearchNext.visibility = View.GONE
+                binding.btnSearchPrev.visibility = View.GONE
+            }
+        }
+        
         // Apply initial dark mode
         readerEngine?.setDarkMode(isDarkMode)
     }
@@ -90,6 +107,10 @@ class ReaderFragment : Fragment() {
             when (menuItem.itemId) {
                 R.id.action_search_doc -> {
                     showSearchBar()
+                    true
+                }
+                R.id.action_share_doc -> {
+                    shareDocument()
                     true
                 }
                 R.id.action_bookmark -> {
@@ -126,6 +147,18 @@ class ReaderFragment : Fragment() {
         item.title = if (isDarkMode) "Light Mode" else "Dark Mode"
     }
 
+    private fun shareDocument() {
+        documentUri?.let { uriString ->
+            val uri = Uri.parse(uriString)
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "*/*" // Can share any of our supported document types
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(Intent.createChooser(shareIntent, "Share Document"))
+        }
+    }
+
     private fun showSearchBar() {
         binding.toolbarTitle.visibility = View.GONE
         binding.searchContainer.visibility = View.VISIBLE
@@ -138,6 +171,11 @@ class ReaderFragment : Fragment() {
         binding.searchContainer.visibility = View.GONE
         binding.toolbarTitle.visibility = View.VISIBLE
         binding.searchInput.text.clear()
+        
+        binding.searchCountText.visibility = View.GONE
+        binding.btnSearchNext.visibility = View.GONE
+        binding.btnSearchPrev.visibility = View.GONE
+        
         readerEngine?.search("")
         val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(binding.searchInput.windowToken, 0)
@@ -145,6 +183,14 @@ class ReaderFragment : Fragment() {
     
     private fun setupSearchLogic() {
         binding.btnCloseSearch.setOnClickListener { hideSearchBar() }
+        
+        binding.btnSearchNext.setOnClickListener {
+            readerEngine?.findNext()
+        }
+        
+        binding.btnSearchPrev.setOnClickListener {
+            readerEngine?.findPrevious()
+        }
         
         binding.searchInput.setOnEditorActionListener { v, actionId, event ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH ||
