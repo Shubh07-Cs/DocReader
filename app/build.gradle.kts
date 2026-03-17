@@ -67,11 +67,11 @@ dependencies {
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
 
-    // Alamin5G PDF Viewer - 16KB compatible PDF library
-    implementation("com.github.alamin5g:Alamin5G-PDF-Viewer:1.0.16")
+    // TalbotGooday PDF Viewer - supports onDraw/onLongPress for text selection
+    implementation("com.github.TalbotGooday:AndroidPdfViewer:3.1.0-beta.3")
 
-    // ML Kit Text Recognition for copying text from PDFs
-    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
+    // PdfBox-Android for native text extraction (no OCR needed)
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 
     // Apache POI for legacy Office formats and rich DOCX support
     implementation("org.apache.poi:poi:5.2.5")
