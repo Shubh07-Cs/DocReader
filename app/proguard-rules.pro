@@ -19,3 +19,15 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# ---------------------------------------------------------------
+# Apache POI – keep all POI classes so XLS/XLSX reading works in
+# release builds (POI uses reflection internally and ProGuard
+# would otherwise strip the HSSF/XSSF/POIFS classes).
+# ---------------------------------------------------------------
+-keep class org.apache.poi.** { *; }
+-keep class org.apache.xmlbeans.** { *; }
+-keep class org.openxmlformats.** { *; }
+-dontwarn org.apache.poi.**
+-dontwarn org.apache.xmlbeans.**
+-dontwarn org.openxmlformats.**
