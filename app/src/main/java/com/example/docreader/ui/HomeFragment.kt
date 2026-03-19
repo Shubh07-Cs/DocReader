@@ -29,6 +29,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.docreader.R
 import com.example.docreader.data.FileType
 import com.example.docreader.databinding.FragmentHomeBinding
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class HomeFragment : Fragment() {
 
@@ -116,6 +117,10 @@ class HomeFragment : Fragment() {
                         openMultipleDocumentsLauncher.launch(arrayOf("*/*"))
                         true
                     }
+                    R.id.action_sort -> {
+                        showSortDialog()
+                        true
+                    }
                     R.id.action_dark_mode -> {
                         isDarkModeEnabled = !isDarkModeEnabled
                         if (isDarkModeEnabled) {
@@ -130,6 +135,53 @@ class HomeFragment : Fragment() {
             }
         }, viewLifecycleOwner, Lifecycle.State.RESUMED)
     }
+
+    private fun showSortDialog() {
+        val fieldOptions = arrayOf("📅  Date", "🔤  Name", "📦  Size")
+
+        val currentFieldIndex = when (viewModel.getCurrentSortField()) {
+            HomeViewModel.SortField.DATE -> 0
+            HomeViewModel.SortField.NAME -> 1
+            HomeViewModel.SortField.SIZE -> 2
+        }
+        val currentDirIndex = when (viewModel.getCurrentSortDirection()) {
+            HomeViewModel.SortDirection.ASC  -> 0
+            HomeViewModel.SortDirection.DESC -> 1
+        }
+
+        var pendingFieldIndex = currentFieldIndex
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Sort by")
+            .setSingleChoiceItems(fieldOptions, currentFieldIndex) { _, which ->
+                pendingFieldIndex = which
+                val field = when (which) {
+                    0    -> HomeViewModel.SortField.DATE
+                    1    -> HomeViewModel.SortField.NAME
+                    else -> HomeViewModel.SortField.SIZE
+                }
+                viewModel.setSortField(field)
+            }
+            .setPositiveButton("Set Order…") { _, _ ->
+                showDirectionDialog(currentDirIndex)
+            }
+            .setNegativeButton("Done", null)
+            .show()
+    }
+
+    private fun showDirectionDialog(preSelected: Int) {
+        val dirOptions = arrayOf("⬆  Ascending", "⬇  Descending")
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Order")
+            .setSingleChoiceItems(dirOptions, preSelected) { dialog, which ->
+                val dir = if (which == 0) HomeViewModel.SortDirection.ASC
+                          else            HomeViewModel.SortDirection.DESC
+                viewModel.setSortDirection(dir)
+                dialog.dismiss()
+            }
+            .show()
+    }
+
 
     override fun onResume() {
         super.onResume()

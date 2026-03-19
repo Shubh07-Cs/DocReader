@@ -89,6 +89,29 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ── Sorting ──────────────────────────────────────────────────────────────
+
+    enum class SortField  { DATE, NAME, SIZE }
+    enum class SortDirection { ASC, DESC }
+
+    private var currentSortField: SortField = SortField.DATE
+    private var currentSortDirection: SortDirection = SortDirection.DESC
+
+    fun setSortField(field: SortField) {
+        currentSortField = field
+        applyFilters()
+    }
+
+    fun setSortDirection(direction: SortDirection) {
+        currentSortDirection = direction
+        applyFilters()
+    }
+
+    fun getCurrentSortField(): SortField = currentSortField
+    fun getCurrentSortDirection(): SortDirection = currentSortDirection
+
+    // ─────────────────────────────────────────────────────────────────────────
+
     private fun applyFilters() {
         var result = allDocuments.toList()
         
@@ -105,7 +128,23 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 it.name.contains(currentSearchQuery, ignoreCase = true) 
             }
         }
-        
+
+        // Apply sort last — combine field + direction for all 6 possible combinations
+        result = when (currentSortField) {
+            SortField.DATE -> if (currentSortDirection == SortDirection.DESC)
+                result.sortedByDescending { it.dateModified }
+            else
+                result.sortedBy { it.dateModified }
+            SortField.NAME -> if (currentSortDirection == SortDirection.ASC)
+                result.sortedBy { it.name.lowercase() }
+            else
+                result.sortedByDescending { it.name.lowercase() }
+            SortField.SIZE -> if (currentSortDirection == SortDirection.DESC)
+                result.sortedByDescending { it.size }
+            else
+                result.sortedBy { it.size }
+        }
+
         _uiState.value = result.map { it.toUiItem() }
     }
 
