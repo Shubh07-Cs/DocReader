@@ -70,7 +70,7 @@
                     style="@style/Widget.Material3.Chip.Filter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="✨ All"
+                    android:text="All"
                     android:checked="true" />
 
                 <com.google.android.material.chip.Chip
@@ -78,42 +78,42 @@
                     style="@style/Widget.Material3.Chip.Filter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="⭐ Bookmarks" />
+                    android:text="Bookmarks" />
                     
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_pdf"
                     style="@style/Widget.Material3.Chip.Filter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="📄 PDF" />
+                    android:text="PDF" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_word"
                     style="@style/Widget.Material3.Chip.Filter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="📝 Word" />
+                    android:text="Word" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_slides"
                     style="@style/Widget.Material3.Chip.Filter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="📊 Slides" />
+                    android:text="PPTs" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_sheets"
                     style="@style/Widget.Material3.Chip.Filter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="📈 Sheets" />
+                    android:text="Excel" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip_text"
                     style="@style/Widget.Material3.Chip.Filter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="📃 Text" />
+                    android:text="Text" />
 
             </com.google.android.material.chip.ChipGroup>
         </HorizontalScrollView>

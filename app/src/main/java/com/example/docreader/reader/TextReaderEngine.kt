@@ -24,6 +24,7 @@ class TextReaderEngine : ReaderEngine {
     private var textView: TextView? = null
     private var loadJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.Main)
+    private var loadingCallback: ((Boolean) -> Unit)? = null
 
     override fun load(context: Context, uri: Uri, fileType: FileType, container: ViewGroup) {
         // 1. Create Layout
@@ -59,10 +60,13 @@ class TextReaderEngine : ReaderEngine {
         container.removeAllViews()
         container.addView(scrollView)
 
+        loadingCallback?.invoke(true)
+
         // 2. Load Content Asynchronously
         loadJob = scope.launch {
             val content = readTextFromUri(context, uri)
             textView?.text = content
+            loadingCallback?.invoke(false)
         }
     }
 
@@ -116,6 +120,10 @@ class TextReaderEngine : ReaderEngine {
         }
         
         view.text = spannable
+    }
+
+    override fun setOnLoadingStateListener(callback: (Boolean) -> Unit) {
+        this.loadingCallback = callback
     }
 
     private fun dpToPx(context: Context, dp: Float): Float {

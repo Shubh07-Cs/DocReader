@@ -20,4 +20,8 @@ class UnsupportedReaderEngine : ReaderEngine {
     override fun onDestroy() { }
 
     override fun search(query: String) { }
+
+    override fun setOnLoadingStateListener(callback: (isLoading: Boolean) -> Unit) {
+        callback(false)
+    }
 }

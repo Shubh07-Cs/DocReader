@@ -64,6 +64,7 @@ class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
     private var currentMatchIndex: Int = -1
     private var searchJob: kotlinx.coroutines.Job? = null
     private var searchCallback: ((Int, Int) -> Unit)? = null
+    private var loadingCallback: ((Boolean) -> Unit)? = null
 
     // Paint for active search highlight
     private val activeSearchHighlightPaint = Paint().apply {
@@ -153,6 +154,7 @@ class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
         }
 
         // Load PDF
+        loadingCallback?.invoke(true)
         loadPdfWithPassword(context, uri, null)
     }
 
@@ -160,6 +162,7 @@ class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
         pdfView?.fromUri(uri)
             ?.defaultPage(0)
             ?.onLoad { nbPages ->
+                loadingCallback?.invoke(false)
                 Toast.makeText(context, "PDF loaded: $nbPages pages", Toast.LENGTH_SHORT).show()
             }
             ?.onPageChange { page, _ ->
@@ -214,6 +217,7 @@ class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
                 onLongPressDetected(context, e)
             }
             ?.onError { throwable ->
+                loadingCallback?.invoke(false)
                 handlePdfError(context, uri, throwable)
             }
             ?.enableSwipe(true)
@@ -264,6 +268,7 @@ class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
             .setPositiveButton("Open") { _, _ ->
                 val enteredPassword = inputField.text.toString()
                 if (enteredPassword.isNotBlank()) {
+                    loadingCallback?.invoke(true)
                     loadPdfWithPassword(context, uri, enteredPassword)
                 } else {
                     Toast.makeText(context, "Password cannot be empty", Toast.LENGTH_SHORT).show()
@@ -608,6 +613,10 @@ class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
 
     override fun setSearchCallback(callback: (current: Int, total: Int) -> Unit) {
         this.searchCallback = callback
+    }
+
+    override fun setOnLoadingStateListener(callback: (Boolean) -> Unit) {
+        this.loadingCallback = callback
     }
 
     private fun clearSearchHighlights() {

@@ -20,6 +20,7 @@ class OfficeReaderEngine : ReaderEngine {
     private var loadJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.Main)
     private var unzippedDir: File? = null
+    private var loadingCallback: ((Boolean) -> Unit)? = null
 
     override fun load(context: Context, uri: Uri, fileType: FileType, container: ViewGroup) {
         webView = WebView(context).apply {
@@ -38,6 +39,8 @@ class OfficeReaderEngine : ReaderEngine {
         
         container.removeAllViews()
         container.addView(webView)
+
+        loadingCallback?.invoke(true)
 
         loadJob = scope.launch {
             val htmlContent = withContext(Dispatchers.IO) {
@@ -132,6 +135,7 @@ class OfficeReaderEngine : ReaderEngine {
             
             val baseUrl = if (unzippedDir != null) "file://${unzippedDir!!.absolutePath}/" else null
             webView?.loadDataWithBaseURL(baseUrl, htmlContent, "text/html", "UTF-8", null)
+            loadingCallback?.invoke(false)
         }
     }
 
@@ -164,5 +168,9 @@ class OfficeReaderEngine : ReaderEngine {
 
     override fun search(query: String) {
         webView?.findAllAsync(query)
+    }
+
+    override fun setOnLoadingStateListener(callback: (Boolean) -> Unit) {
+        this.loadingCallback = callback
     }
 }

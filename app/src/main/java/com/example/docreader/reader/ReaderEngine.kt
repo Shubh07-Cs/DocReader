@@ -57,4 +57,10 @@ interface ReaderEngine {
      * @param callback A function called with (currentIndex, totalMatches).
      */
     fun setSearchCallback(callback: (current: Int, total: Int) -> Unit) {}
+
+    /**
+     * Sets a callback to receive loading state updates.
+     * @param callback A function called with (isLoading).
+     */
+    fun setOnLoadingStateListener(callback: (isLoading: Boolean) -> Unit) {}
 }

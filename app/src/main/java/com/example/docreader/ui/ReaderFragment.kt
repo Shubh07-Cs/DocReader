@@ -71,6 +71,12 @@ class ReaderFragment : Fragment() {
 
     private fun loadDocument(uri: Uri, fileType: FileType) {
         readerEngine = ReaderManager.getEngine(fileType, this)
+        
+        // Setup loading listener BEFORE loading
+        readerEngine?.setOnLoadingStateListener { isLoading ->
+            binding.loadingOverlay.visibility = if (isLoading) View.VISIBLE else View.GONE
+        }
+
         readerEngine?.load(requireContext(), uri, fileType, binding.readerContainer)
         
         // Listen for search updates
