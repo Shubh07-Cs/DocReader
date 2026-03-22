@@ -98,45 +98,196 @@ object PptToHtmlConverter {
     //  PUBLIC: .ppt (Apache POI HSLF — text + images, no positioning on Android)
     // ══════════════════════════════════════════════════════════════════════════
 
+    private fun getReflectObj(obj: Any?, method: String): Any? {
+        if (obj == null) return null
+        return try { obj.javaClass.getMethod(method).invoke(obj) } catch (_: Throwable) { null }
+    }
+
+    private fun getReflectDouble(obj: Any?, method: String, field: String): Double {
+        if (obj == null) return 0.0
+        try { return (obj.javaClass.getMethod(method).invoke(obj) as Number).toDouble() } catch (_: Throwable) {}
+        try { return (obj.javaClass.getField(field).get(obj) as Number).toDouble() } catch (_: Throwable) {}
+        return 0.0
+    }
+
+    private fun getReflectInt(obj: Any?, method: String, field: String): Int {
+        if (obj == null) return 0
+        try { return (obj.javaClass.getMethod(method).invoke(obj) as Number).toInt() } catch (_: Throwable) {}
+        try { return (obj.javaClass.getField(field).get(obj) as Number).toInt() } catch (_: Throwable) {}
+        return 0
+    }
+
+    private fun extractRgb(colorObj: Any?): String? {
+        if (colorObj == null) return null
+        var actual = colorObj
+        if (actual.javaClass.name.contains("Paint")) {
+            actual = getReflectObj(actual, "getSolidColor") ?: actual
+        }
+        val c = getReflectObj(actual, "getColor") ?: actual
+        val r = getReflectInt(c, "getRed", "red")
+        val g = getReflectInt(c, "getGreen", "green")
+        val b = getReflectInt(c, "getBlue", "blue")
+        return String.format("#%02x%02x%02x", r, g, b)
+    }
+
     fun convertPpt(context: Context, inputStream: InputStream): String { return try {
         val buf = if (inputStream.markSupported()) inputStream else BufferedInputStream(inputStream)
         val show = org.apache.poi.hslf.usermodel.HSLFSlideShow(buf)
-        val sb = StringBuilder(header())
-
-        show.slides.forEachIndexed { i, slide ->
-            sb.append("<div class='lbl'>Slide ${i + 1}</div>")
-            sb.append("<div class='slide' style='padding:32px;min-height:160px;'>")
+        val pageSizeObj = getReflectObj(show, "getPageSize")
+        // Default to a vertical scrolling layout if dimensions unavailable
+        val slideW = getReflectDouble(pageSizeObj, "getWidth", "width").takeIf { it > 0 } ?: 960.0
+        val slideH = getReflectDouble(pageSizeObj, "getHeight", "height").takeIf { it > 0 } ?: 720.0
+        
+        val sb = StringBuilder(header(slideW.toInt()))
+        var sNum = 1
+        for (slide in show.slides) {
+            sb.append("<div class='lbl'>Slide ${sNum++}</div>")
+            
+            var bgCol = "background:#ffffff;"
             try {
-                for (shape in slide.shapes) {
-                    if (shape is org.apache.poi.hslf.usermodel.HSLFTextShape) {
-                        for (para in shape.textParagraphs) {
-                            sb.append("<p>")
-                            for (run in para.textRuns) {
-                                val css = StringBuilder()
-                                try { if (run.isBold) css.append("font-weight:bold;") } catch (_: Throwable) {}
-                                try { if (run.isItalic) css.append("font-style:italic;") } catch (_: Throwable) {}
-                                try { if (run.isUnderlined) css.append("text-decoration:underline;") } catch (_: Throwable) {}
-                                try { run.fontSize?.let { css.append("font-size:${it}pt;") } } catch (_: Throwable) {}
-                                sb.append("<span style='$css'>${esc(run.rawText)}</span>")
-                            }
-                            sb.append("</p>")
-                        }
-                    } else if (shape is org.apache.poi.hslf.usermodel.HSLFPictureShape) {
+                val bgObj = getReflectObj(slide, "getBackground")
+                val fillObj = getReflectObj(bgObj, "getFill")
+                val fgColor = getReflectObj(fillObj, "getForegroundColor")
+                if (fgColor != null) {
+                    val hex = extractRgb(fgColor)
+                    if (hex != null) bgCol = "background:$hex;"
+                }
+            } catch (_: Throwable) {}
+            
+            sb.append("<div class='slide' style='width:${slideW.toInt()}px;height:${slideH.toInt()}px;$bgCol'>")
+            
+            try {
+                val master = getReflectObj(slide, "getMasterSheet") as? Iterable<*>
+                if (master != null) {
+                    val shapesObj = getReflectObj(master, "getShapes") as? Iterable<*>
+                    val shapeList = shapesObj ?: master
+                    for (shape in shapeList) {
                         try {
-                            val d = shape.pictureData
-                            val b64 = Base64.encodeToString(d.data, Base64.NO_WRAP)
-                            sb.append("<img style='max-width:100%;margin:8px 0;' src='data:${d.contentType};base64,$b64'/>")
+                            if (shape is org.apache.poi.hslf.usermodel.HSLFShape) renderHslfShape(shape, sb, true)
                         } catch (_: Throwable) {}
                     }
                 }
-            } catch (_: Throwable) {
-                sb.append("<p style='color:#888;'><i>Could not fully read this slide.</i></p>")
+            } catch (_: Throwable) {}
+            
+            var shapesOk = false
+            try {
+                for (shape in slide.shapes) {
+                    try {
+                        renderHslfShape(shape, sb, false)
+                    } catch (_: Throwable) {}
+                }
+                shapesOk = true
+            } catch (_: Throwable) {}
+
+            if (!shapesOk) {
+                try {
+                    val textParasObj = getReflectObj(slide, "getTextParagraphs") as? Iterable<*>
+                    if (textParasObj != null) {
+                        for (paraList in textParasObj) {
+                            if (paraList is Iterable<*>) {
+                                for (paraObj in paraList) {
+                                    val runsObj = getReflectObj(paraObj, "getTextRuns") as? Iterable<*> ?: continue
+                                    sb.append("<p style='padding:4px'>")
+                                    for (run in runsObj) {
+                                        if (run is org.apache.poi.hslf.usermodel.HSLFTextRun) {
+                                            val text = esc((run.rawText ?: "").replace("\r", ""))
+                                            sb.append("<span style='font-size:16pt;color:#000;'>$text</span>")
+                                        }
+                                    }
+                                    sb.append("</p>")
+                                }
+                            }
+                        }
+                    }
+                } catch (_: Throwable) {}
             }
+            
             sb.append("</div>")
         }
         show.close()
         sb.append("</body></html>"); sb.toString()
     } catch (e: Throwable) { errHtml("Cannot read legacy .ppt: ${e.message}") } }
+
+    private fun renderHslfShape(shape: org.apache.poi.hslf.usermodel.HSLFShape, sb: StringBuilder, isMaster: Boolean) {
+        val anchorObj = getReflectObj(shape, "getAnchor")
+        val sx = getReflectDouble(anchorObj, "getX", "x").toInt()
+        val sy = getReflectDouble(anchorObj, "getY", "y").toInt()
+        val sw = getReflectDouble(anchorObj, "getWidth", "width").toInt()
+        val sh = getReflectDouble(anchorObj, "getHeight", "height").toInt()
+        
+        val hasBounds = sw > 0 && sh > 0
+
+        // If it's a Master shape and we have no bounds, it would stretch incorrectly, so skip
+        if (isMaster && !hasBounds) return
+
+        var bgCss = ""
+        if (shape is org.apache.poi.hslf.usermodel.HSLFSimpleShape) {
+            val fillColObj = getReflectObj(shape, "getFillColor")
+            if (fillColObj != null) {
+                var a = getReflectInt(fillColObj, "getAlpha", "alpha")
+                if (a == 0) a = 255
+                val r = getReflectInt(fillColObj, "getRed", "red")
+                val g = getReflectInt(fillColObj, "getGreen", "green")
+                val b = getReflectInt(fillColObj, "getBlue", "blue")
+                bgCss = String.format("background:rgba(%d,%d,%d,%.2f);", r, g, b, a / 255f)
+            }
+        }
+
+        var isPicture = false
+        var isText = false
+        if (shape is org.apache.poi.hslf.usermodel.HSLFTextShape) isText = true
+        if (shape is org.apache.poi.hslf.usermodel.HSLFPictureShape) isPicture = true
+
+        // Don't render invisible boundless shapes to avoid messing up stacking
+        if (!hasBounds && !isText && !isPicture) return
+
+        val posCss = if (hasBounds) {
+            "position:absolute; left:${sx}px; top:${sy}px; width:${sw}px; height:${sh}px;"
+        } else {
+            "position:relative; width:90%; margin: 16px auto; min-height: 40px;"
+        }
+
+        sb.append("<div class='sh' style='$posCss$bgCss'>")
+
+        if (shape is org.apache.poi.hslf.usermodel.HSLFTextShape) {
+            try {
+                for (para in shape.textParagraphs) {
+                    val align = when (para.textAlign?.name) {
+                        "CENTER" -> "center"
+                        "RIGHT" -> "right"
+                        "JUSTIFY" -> "justify"
+                        else -> "left"
+                    }
+                    sb.append("<p style='text-align:$align'>")
+                    for (run in para.textRuns) {
+                        try {
+                            val text = esc((run.rawText ?: "").replace("\r", ""))
+                            if (text.isEmpty()) continue
+                            val size = (run.fontSize ?: 18.0) * 0.90
+                            var css = "font-size:${size}pt;"
+                            if (run.isBold) css += "font-weight:bold;"
+                            if (run.isItalic) css += "font-style:italic;"
+                            if (run.isUnderlined) css += "text-decoration:underline;"
+                            val colorObj = getReflectObj(run, "getFontColor")
+                            val hex = extractRgb(colorObj)
+                            if (hex != null) css += "color:$hex;"
+                            sb.append("<span style='$css'>$text</span>")
+                        } catch (e: Throwable) {}
+                    }
+                    sb.append("</p>")
+                }
+            } catch (e: Throwable) {}
+        } else if (shape is org.apache.poi.hslf.usermodel.HSLFPictureShape) {
+            try {
+                val pd = shape.pictureData
+                if (pd != null) {
+                    val base64 = android.util.Base64.encodeToString(pd.data, android.util.Base64.NO_WRAP)
+                    sb.append("<img src='data:${pd.contentType};base64,$base64'/>")
+                }
+            } catch (e: Throwable) {}
+        }
+        sb.append("</div>")
+    }
 
     // ── Slide dimensions from presentation.xml ──────────────────────────────
 
