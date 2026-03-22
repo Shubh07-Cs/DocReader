@@ -32,6 +32,7 @@ class OfficeReaderEngine : ReaderEngine {
             settings.loadWithOverviewMode = true
             settings.useWideViewPort = true
             settings.allowFileAccess = true 
+            settings.textZoom = 100 // Prevent Android user text scaling from breaking absolute positioning
         }
         
         container.removeAllViews()
@@ -45,7 +46,8 @@ class OfficeReaderEngine : ReaderEngine {
                 val isDocx = fileName.endsWith(".docx")
                 val isXls = fileName.endsWith(".xls")
                 val isXlsx = fileName.endsWith(".xlsx")
-                val isLegacy = fileName.endsWith(".ppt") // Only PPT left in generic legacy check
+                val isPpt = fileName.endsWith(".ppt") && !fileName.endsWith(".pptx")
+                val isPptx = fileName.endsWith(".pptx")
                 
                 if (isCsv) {
                    try {
@@ -102,28 +104,28 @@ class OfficeReaderEngine : ReaderEngine {
                     } catch (e: Exception) {
                         "<html><body>Error parsing XLSX: ${e.message}</body></html>"
                     }
-                } else if (isLegacy) {
+                } else if (isPpt) {
                     try {
                         val inputStream = context.contentResolver.openInputStream(uri)
                         if (inputStream != null) {
-                            LegacyOoxmlParser.parsePpt(inputStream)
+                            PptToHtmlConverter.convertPpt(context, inputStream)
                         } else {
                             "<html><body>Could not open file stream.</body></html>"
                         }
                     } catch (e: Exception) {
-                        "<html><body>Error parsing legacy PPT: ${e.message}</body></html>"
+                        "<html><body>Error parsing PPT: ${e.message}</body></html>"
                     }
-                } else {
+                } else if (isPptx) {
+                    // Unzip PPTX so images can be referenced by file:// baseUrl
                     unzippedDir = OoxmlParser.unzip(context, uri)
                     val rootDir = unzippedDir
                     if (rootDir != null) {
-                        when (fileType) {
-                            com.example.docreader.data.FileType.SLIDES -> OoxmlParser.parsePptx(rootDir)
-                            else -> "<html><body>Unsupported file format or corrupted file.</body></html>"
-                        }
+                        PptToHtmlConverter.convertPptx(rootDir)
                     } else {
-                         "<html><body>Failed to read document structure. File might be corrupted.</body></html>"
+                        "<html><body>Failed to read presentation. File might be corrupted.</body></html>"
                     }
+                } else {
+                    "<html><body>Unsupported file format.</body></html>"
                 }
             }
             
