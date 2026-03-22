@@ -32,6 +32,7 @@ class OfficeReaderEngine : ReaderEngine {
             settings.loadWithOverviewMode = true
             settings.useWideViewPort = true
             settings.allowFileAccess = true 
+            settings.javaScriptEnabled = true
             settings.textZoom = 100 // Prevent Android user text scaling from breaking absolute positioning
         }
         
