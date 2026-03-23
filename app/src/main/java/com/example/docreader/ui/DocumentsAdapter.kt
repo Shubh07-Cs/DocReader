@@ -9,6 +9,9 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.docreader.R
 import com.example.docreader.databinding.ItemDocumentBinding
 
+import androidx.recyclerview.widget.ListAdapter
+import androidx.recyclerview.widget.DiffUtil
+
 data class DocumentItem(
     val uri: String,
     val name: String,
@@ -20,14 +23,8 @@ data class DocumentItem(
 )
 
 class DocumentsAdapter(
-    private var items: List<DocumentItem>,
     private val onItemClick: (DocumentItem) -> Unit
-) : RecyclerView.Adapter<DocumentsAdapter.DocumentViewHolder>() {
-
-    fun updateList(newItems: List<DocumentItem>) {
-        items = newItems
-        notifyDataSetChanged()
-    }
+) : ListAdapter<DocumentItem, DocumentsAdapter.DocumentViewHolder>(DiffCallback) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): DocumentViewHolder {
         val binding = ItemDocumentBinding.inflate(
@@ -39,10 +36,8 @@ class DocumentsAdapter(
     }
 
     override fun onBindViewHolder(holder: DocumentViewHolder, position: Int) {
-        holder.bind(items[position])
+        holder.bind(getItem(position))
     }
-
-    override fun getItemCount(): Int = items.size
 
     inner class DocumentViewHolder(
         private val binding: ItemDocumentBinding
@@ -93,6 +88,18 @@ class DocumentsAdapter(
 
             binding.root.setOnClickListener {
                 onItemClick(item)
+            }
+        }
+    }
+
+    companion object {
+        private val DiffCallback = object : DiffUtil.ItemCallback<DocumentItem>() {
+            override fun areItemsTheSame(oldItem: DocumentItem, newItem: DocumentItem): Boolean {
+                return oldItem.uri == newItem.uri
+            }
+
+            override fun areContentsTheSame(oldItem: DocumentItem, newItem: DocumentItem): Boolean {
+                return oldItem == newItem
             }
         }
     }

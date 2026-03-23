@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -90,6 +91,11 @@ dependencies {
     implementation("org.apache.poi:poi-scratchpad:5.2.5")
     implementation("javax.xml.stream:stax-api:1.0-2")
     implementation("com.fasterxml.woodstox:woodstox-core:5.0.3")
+
+    // High-Performance Database (Room)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

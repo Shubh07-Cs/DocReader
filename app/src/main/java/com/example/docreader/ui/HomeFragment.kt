@@ -223,7 +223,7 @@ class HomeFragment : Fragment() {
 
     private fun observeViewModel() {
         viewModel.uiState.observe(viewLifecycleOwner) { documents ->
-            adapter.updateList(documents)
+            adapter.submitList(documents)
         }
     }
 
@@ -254,7 +254,7 @@ class HomeFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        adapter = DocumentsAdapter(emptyList()) { item ->
+        adapter = DocumentsAdapter { item ->
             val bundle = Bundle().apply {
                 putString("documentUri", item.uri)
                 putString("documentName", item.name)

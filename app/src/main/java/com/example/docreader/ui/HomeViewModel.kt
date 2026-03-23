@@ -84,8 +84,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val doc = allDocuments.find { it.uri == uri }
         doc?.let {
             it.isBookmarked = !it.isBookmarked
-            repository.setBookmarkStatus(uri, it.isBookmarked)
-            applyFilters() // Refresh list
+            viewModelScope.launch {
+                repository.setBookmarkStatus(uri, it.isBookmarked)
+                applyFilters() // Refresh list dynamically after DB update
+            }
         }
     }
 

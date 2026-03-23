@@ -2,30 +2,27 @@ package com.example.docreader.data
 
 import android.content.ContentUris
 import android.content.Context
-import android.content.SharedPreferences
 import android.content.Intent
-import android.database.Cursor
 import android.net.Uri
 import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.util.Log
+import com.example.docreader.data.room.AppDatabase
+import com.example.docreader.data.room.BookmarkEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class DocumentRepository(private val context: Context) {
 
-    private val prefs: SharedPreferences = context.getSharedPreferences("doc_reader_prefs", Context.MODE_PRIVATE)
-    private val KEY_SAVED_URIS = "saved_uris"
-    private val KEY_BOOKMARKED_URIS = "bookmarked_uris"
-
-    private fun getBookmarkedUris(): MutableSet<String> {
-        return prefs.getStringSet(KEY_BOOKMARKED_URIS, emptySet())?.toMutableSet() ?: mutableSetOf()
-    }
+    private val bookmarkDao = AppDatabase.getDatabase(context).bookmarkDao()
 
     suspend fun getAllDocuments(): List<DocumentEntity> = withContext(Dispatchers.IO) {
-        val bookmarkedUris = getBookmarkedUris()
+        val allBookmarks = bookmarkDao.getAllBookmarks()
+        val bookmarkedUris = allBookmarks.filter { it.isBookmarked }.map { it.uri }.toSet()
+        val importedUris = allBookmarks.filter { it.isManuallyImported }.map { it.uri }.toSet()
+
         val scannedDocs = scanMediaStore(bookmarkedUris)
-        val importedDocs = getManuallyImportedDocuments(bookmarkedUris)
+        val importedDocs = getManuallyImportedDocuments(importedUris, bookmarkedUris)
 
         // De-duplicate using a combination of name+size as primary key and URI as secondary.
         val combinedDocs = mutableMapOf<String, DocumentEntity>()
@@ -45,13 +42,11 @@ class DocumentRepository(private val context: Context) {
         importedDocs.forEach { doc ->
             val key = "${doc.name}_${doc.size}"
             if (seenUris.contains(doc.uri)) {
-                // Same URI already seen, skip
                 return@forEach
             }
             seenUris.add(doc.uri)
             val existing = combinedDocs[key]
             if (existing != null) {
-                // Same file by name+size — merge bookmark: if either is bookmarked, keep it bookmarked
                 if (doc.isBookmarked && !existing.isBookmarked) {
                     existing.isBookmarked = true
                 }
@@ -115,20 +110,22 @@ class DocumentRepository(private val context: Context) {
              Log.e("DocumentRepository", "Failed to take persistable permission: ${e.message}")
         }
 
-        val doc = extractDocumentMetadata(uri, getBookmarkedUris())
+        // Pass empty set since bookmark status is queried natively below
+        val doc = extractDocumentMetadata(uri, emptySet())
         if (doc != null) {
-            val savedUris = prefs.getStringSet(KEY_SAVED_URIS, emptySet())?.toMutableSet() ?: mutableSetOf()
-            savedUris.add(uri.toString())
-            prefs.edit().putStringSet(KEY_SAVED_URIS, savedUris).apply()
+            val existing = bookmarkDao.getBookmark(uri.toString())
+            if (existing != null) {
+                bookmarkDao.insertBookmark(existing.copy(isManuallyImported = true))
+            } else {
+                bookmarkDao.insertBookmark(BookmarkEntity(uri.toString(), isBookmarked = false, isManuallyImported = true))
+            }
         }
         return@withContext doc
     }
 
-    private fun getManuallyImportedDocuments(bookmarkedUris: Set<String>): List<DocumentEntity> {
-        val savedUris = prefs.getStringSet(KEY_SAVED_URIS, emptySet()) ?: emptySet()
+    private fun getManuallyImportedDocuments(importedUris: Set<String>, bookmarkedUris: Set<String>): List<DocumentEntity> {
         val validDocs = mutableListOf<DocumentEntity>()
-
-        savedUris.forEach { uriString ->
+        importedUris.forEach { uriString ->
             try {
                 val uri = Uri.parse(uriString)
                 if (isUriAccessible(uri)) {
@@ -179,14 +176,13 @@ class DocumentRepository(private val context: Context) {
         )
     }
 
-    fun setBookmarkStatus(uri: String, isBookmarked: Boolean) {
-        val bookmarkedUris = getBookmarkedUris()
-        if (isBookmarked) {
-            bookmarkedUris.add(uri)
+    suspend fun setBookmarkStatus(uri: String, isBookmarked: Boolean) = withContext(Dispatchers.IO) {
+        val existing = bookmarkDao.getBookmark(uri)
+        if (existing != null) {
+            bookmarkDao.insertBookmark(existing.copy(isBookmarked = isBookmarked))
         } else {
-            bookmarkedUris.remove(uri)
+            bookmarkDao.insertBookmark(BookmarkEntity(uri, isBookmarked = isBookmarked, isManuallyImported = false))
         }
-        prefs.edit().putStringSet(KEY_BOOKMARKED_URIS, bookmarkedUris).apply()
     }
 
     private fun determineFileType(fileName: String, mimeType: String?): FileType {
