@@ -14,6 +14,9 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         handleIntent(intent)
+        
+        // Safely check for updates in the background
+        com.example.docreader.utils.GitHubUpdateManager.checkForUpdates(this)
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
