@@ -58,3 +58,26 @@
 
 -keep class com.example.docreader.data.** { *; }
 -keep class com.example.docreader.ui.DocumentItem { *; }
+-keep class com.example.docreader.reader.** { *; }
+
+# ===============================
+# CRITICAL APACHE POI XML & REFLECTION RULES
+# ===============================
+-keep class schemaorg_apache_xmlbeans.** { *; }
+-keep class org.apache.xmlbeans.impl.** { *; }
+-keep class org.codehaus.stax2.** { *; }
+-keep class javax.xml.stream.** { *; }
+-keep class com.fasterxml.woodstox.** { *; }
+-keep class * extends javax.xml.stream.XMLInputFactory { *; }
+-keep class * extends javax.xml.stream.XMLOutputFactory { *; }
+-keep class * extends javax.xml.stream.XMLEventFactory { *; }
+
+-keepclassmembers class * extends javax.xml.stream.XMLInputFactory {
+    public <init>();
+}
+-keepclassmembers class * extends javax.xml.stream.XMLOutputFactory {
+    public <init>();
+}
+-keepclassmembers class * extends javax.xml.stream.XMLEventFactory {
+    public <init>();
+}

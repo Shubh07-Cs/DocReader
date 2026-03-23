@@ -118,16 +118,20 @@ object WordToHtmlConverter {
 
         for (run in paragraph.runs) {
              val style = StringBuilder()
-             if (run.isBold) style.append("font-weight:bold;")
-             if (run.isItalic) style.append("font-style:italic;")
-             if (run.underline != org.apache.poi.xwpf.usermodel.UnderlinePatterns.NONE) style.append("text-decoration:underline;")
-             
-             run.color?.let { 
-                 if (it.length == 6) style.append("color:#$it;") 
-                 else if (it != "auto") style.append("color:$it;")
+             try {
+                 if (run.isBold) style.append("font-weight:bold;")
+                 if (run.isItalic) style.append("font-style:italic;")
+                 if (run.underline != org.apache.poi.xwpf.usermodel.UnderlinePatterns.NONE) style.append("text-decoration:underline;")
+                 
+                 run.color?.let { 
+                     if (it.length == 6) style.append("color:#$it;") 
+                     else if (it != "auto") style.append("color:$it;")
+                 }
+                 val sz = run.fontSize
+                 if (sz != -1) style.append("font-size:${sz}pt;")
+             } catch (_: Throwable) {
+                 // Ignore: 3rd party malformed XML generators often inject invalid shapes (like '#000' instead of '000000')
              }
-             val sz = run.fontSize
-             if (sz != -1) style.append("font-size:${sz}pt;")
              
              if (run.embeddedPictures.isNotEmpty()) {
                  for (pic in run.embeddedPictures) {
