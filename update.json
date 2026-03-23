@@ -1,6 +1,6 @@
 {
-  "versionCode": 2,
-  "versionName": "1.1",
-  "downloadUrl": "https://github.com/Shubh07-Cs/DocReader/releases/tag/V0.1.6",
-  "changeLog": "Test update!"
+  "versionCode": 3,
+  "versionName": "0.1.7",
+  "downloadUrl": "https://github.com/Shubh07-Cs/DocReader/releases/tag/V0.1.7",
+  "changeLog": "Fixed all Office crashes! Fast Database Engine!"
 }
