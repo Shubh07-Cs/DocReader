@@ -197,16 +197,7 @@ class HomeFragment : Fragment() {
              if (Environment.isExternalStorageManager()) {
                  viewModel.loadDocuments()
              } else {
-                 try {
-                     val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
-                     intent.addCategory("android.intent.category.DEFAULT")
-                     intent.data = Uri.parse("package:${requireContext().packageName}")
-                     startActivity(intent)
-                     Toast.makeText(context, "Please grant 'All Files Access' to scan documents.", Toast.LENGTH_LONG).show()
-                 } catch (e: Exception) {
-                     val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-                     startActivity(intent)
-                 }
+                 showPermissionChoiceDialog()
              }
         } else {
             if (ContextCompat.checkSelfPermission(
@@ -216,9 +207,37 @@ class HomeFragment : Fragment() {
             ) {
                 viewModel.loadDocuments()
             } else {
-                requestPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+                showPermissionChoiceDialog()
             }
         }
+    }
+
+    private fun showPermissionChoiceDialog() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Storage Access")
+            .setMessage("Do you want to grant 'All Files Access' to automatically scan your device for all documents, or would you prefer to manually select specific files yourself without granting global access?")
+            .setPositiveButton("Grant All Access") { _, _ ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    try {
+                        val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                        intent.addCategory("android.intent.category.DEFAULT")
+                        intent.data = Uri.parse("package:${requireContext().packageName}")
+                        startActivity(intent)
+                        Toast.makeText(context, "Please allow 'All files access' to automatically scan.", Toast.LENGTH_LONG).show()
+                    } catch (e: Exception) {
+                        val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                        startActivity(intent)
+                    }
+                } else {
+                    requestPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+                }
+            }
+            .setNegativeButton("Select Manually") { _, _ ->
+                // This securely launches the system file picker WITHOUT requiring any local permissions!
+                openMultipleDocumentsLauncher.launch(arrayOf("*/*"))
+            }
+            .setNeutralButton("Cancel", null)
+            .show()
     }
 
     private fun observeViewModel() {
