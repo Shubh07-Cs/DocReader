@@ -9,7 +9,11 @@ import com.example.docreader.data.FileType
 class UnsupportedReaderEngine : ReaderEngine {
     override fun load(context: Context, uri: Uri, fileType: FileType, container: ViewGroup) {
         val textView = TextView(context).apply {
-            text = "Unsupported file format."
+            text = if (fileType == FileType.DJVU) {
+                "DJVU Format\n\nThis format requires specialized reading layers. Native support will be fully expanded in future updates."
+            } else {
+                "Unsupported file format."
+            }
             textSize = 16f
             setPadding(32, 32, 32, 32)
         }

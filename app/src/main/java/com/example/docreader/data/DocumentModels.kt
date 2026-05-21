@@ -3,7 +3,7 @@ package com.example.docreader.data
 import android.net.Uri
 
 enum class FileType {
-    PDF, WORD, SLIDES, SHEETS, TEXT, EPUB, UNKNOWN
+    PDF, WORD, SLIDES, SHEETS, TEXT, EPUB, MARKDOWN, HTML, JSON, XML, RTF, CBZ, CBR, ODT, ODS, ODP, DJVU, MOBI, UNKNOWN
 }
 
 data class DocumentEntity(

@@ -324,6 +324,7 @@ class PdfReaderEngine(private val parentFragment: Fragment) : ReaderEngine {
             ?.pageFitPolicy(FitPolicy.WIDTH)
             ?.fitEachPage(true)
             ?.nightMode(false)
+            ?.scrollHandle(com.github.barteksc.pdfviewer.scroll.DefaultScrollHandle(context))
             ?.load()
     }
 

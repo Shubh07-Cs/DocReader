@@ -92,6 +92,15 @@ dependencies {
     implementation("javax.xml.stream:stax-api:1.0-2")
     implementation("com.fasterxml.woodstox:woodstox-core:5.0.3")
 
+    // Markdown rendering
+    implementation("io.noties.markwon:core:4.6.2")
+    
+    // RAR extraction for CBR files
+    implementation("com.github.junrar:junrar:7.5.5")
+
+    // Image Zooming (for Comic Reader)
+    implementation("com.github.chrisbanes:PhotoView:2.3.0")
+
     // High-Performance Database (Room)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

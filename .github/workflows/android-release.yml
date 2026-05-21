@@ -1,0 +1,73 @@
+name: Build and Publish Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: '0.2.2'
+        required: true
+        default: '0.2.0'
+      release_notes:
+        description: 'Release Notes (Shown in App Update Dialog)'
+        required: true
+        default: 'Major bug fixes and performance optimizations.'
+
+jobs:
+  build:
+    name: Build Signed APK
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # Required for creating Release tags and uploading assets
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant Execute Permission For Gradlew
+        run: chmod +x gradlew
+
+      - name: Decode Production Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > app/release-keystore.jks
+
+      - name: Compile Signed App Bundle and APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: >
+          ./gradlew assembleRelease
+          -Pandroid.injected.signing.store.file=$(pwd)/app/release-keystore.jks
+          -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD
+          -Pandroid.injected.signing.key.alias=$KEY_ALIAS
+          -Pandroid.injected.signing.key.password=$KEY_PASSWORD
+
+      - name: Rename APKs for Clarity
+        run: |
+          mv app/build/outputs/apk/release/app-arm64-v8a-release.apk "app/build/outputs/apk/release/DocReader-v${{ github.event.inputs.version_name }}-arm64-v8a.apk"
+          mv app/build/outputs/apk/release/app-armeabi-v7a-release.apk "app/build/outputs/apk/release/DocReader-v${{ github.event.inputs.version_name }}-armeabi-v7a.apk"
+          mv app/build/outputs/apk/release/app-x86_64-release.apk "app/build/outputs/apk/release/DocReader-v${{ github.event.inputs.version_name }}-x86_64.apk"
+          mv app/build/outputs/apk/release/app-x86-release.apk "app/build/outputs/apk/release/DocReader-v${{ github.event.inputs.version_name }}-x86.apk"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.version_name }}
+          name: DocReader v${{ github.event.inputs.version_name }}
+          body: ${{ github.event.inputs.release_notes }}
+          draft: false
+          prerelease: false
+          files: |
+            app/build/outputs/apk/release/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

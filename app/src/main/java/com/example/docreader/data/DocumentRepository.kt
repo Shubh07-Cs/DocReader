@@ -191,9 +191,21 @@ class DocumentRepository(private val context: Context) {
             lowerName.endsWith(".pdf") -> FileType.PDF
             lowerName.endsWith(".docx") || lowerName.endsWith(".doc") -> FileType.WORD
             lowerName.endsWith(".pptx") || lowerName.endsWith(".ppt") -> FileType.SLIDES
-            lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls") -> FileType.SHEETS
+            lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls") || lowerName.endsWith(".csv") -> FileType.SHEETS
             lowerName.endsWith(".txt") -> FileType.TEXT
             lowerName.endsWith(".epub") -> FileType.EPUB
+            lowerName.endsWith(".md") || lowerName.endsWith(".markdown") -> FileType.MARKDOWN
+            lowerName.endsWith(".html") || lowerName.endsWith(".htm") -> FileType.HTML
+            lowerName.endsWith(".json") -> FileType.JSON
+            lowerName.endsWith(".xml") -> FileType.XML
+            lowerName.endsWith(".rtf") -> FileType.RTF
+            lowerName.endsWith(".cbz") -> FileType.CBZ
+            lowerName.endsWith(".cbr") -> FileType.CBR
+            lowerName.endsWith(".odt") -> FileType.ODT
+            lowerName.endsWith(".ods") -> FileType.ODS
+            lowerName.endsWith(".odp") -> FileType.ODP
+            lowerName.endsWith(".djvu") || lowerName.endsWith(".djv") -> FileType.DJVU
+            lowerName.endsWith(".mobi") || lowerName.endsWith(".azw3") || lowerName.endsWith(".prc") -> FileType.MOBI
             else -> FileType.UNKNOWN
         }
     }
