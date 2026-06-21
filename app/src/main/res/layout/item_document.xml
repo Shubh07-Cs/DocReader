@@ -1,125 +1,95 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="16dp"
-    app:cardElevation="4dp"
-    app:cardCornerRadius="20dp"
-    app:strokeWidth="0dp"
-    android:clickable="true"
-    android:focusable="true"
-    android:foreground="?attr/selectableItemBackground">
+    android:orientation="vertical">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <LinearLayout
+        android:id="@+id/content_row"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="top"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="12dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?attr/selectableItemBackground">
 
-        <!-- Bold colored accent stripe on left -->
-        <View
-            android:id="@+id/accent_stripe"
-            android:layout_width="6dp"
-            android:layout_height="0dp"
-            android:background="@color/file_pdf"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"/>
-
-        <!-- Gradient overlay for premium look -->
-        <View
-            android:id="@+id/gradient_overlay"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:background="@drawable/bg_gradient"
-            android:alpha="0.03"
-            app:layout_constraintStart_toEndOf="@id/accent_stripe"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"/>
-
-        <!-- Icon container with larger circular colored background -->
+        <!-- Icon pinned to top so it stays aligned when text wraps -->
         <FrameLayout
             android:id="@+id/icon_container"
-            android:layout_width="64dp"
-            android:layout_height="64dp"
-            android:layout_marginStart="20dp"
-            android:layout_marginTop="20dp"
-            android:layout_marginBottom="20dp"
-            android:elevation="2dp"
-            app:layout_constraintStart_toEndOf="@id/accent_stripe"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent">
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginEnd="14dp"
+            android:layout_gravity="top">
 
-            <!-- Circular colored background -->
             <View
                 android:id="@+id/icon_background"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:background="@drawable/bg_circular_icon"
-                android:alpha="0.20"/>
+                android:alpha="0.0" />
 
-            <!-- File type icon -->
             <ImageView
                 android:id="@+id/icon_file_type"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
                 android:layout_gravity="center"
-                android:src="@drawable/ic_pdf"
-                app:tint="@color/file_pdf" />
+                android:src="@drawable/ic_pdf" />
         </FrameLayout>
 
-        <!-- Document name -->
+        <!-- Filename — wraps naturally up to 3 lines -->
         <TextView
             android:id="@+id/text_doc_name"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="20dp"
-            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:layout_gravity="center_vertical"
             android:text="Document Name.pdf"
-            android:textAppearance="?attr/textAppearanceTitleMedium"
-            android:textStyle="bold"
-            android:textSize="16sp"
-            android:maxLines="2"
+            android:textAppearance="?attr/textAppearanceBodyLarge"
+            android:textSize="15sp"
+            android:maxLines="3"
             android:ellipsize="end"
-            android:letterSpacing="0.01"
-            app:layout_constraintStart_toEndOf="@id/icon_container"
-            app:layout_constraintTop_toTopOf="@id/icon_container"
-            app:layout_constraintEnd_toStartOf="@id/icon_bookmark" />
+            android:lineSpacingExtra="2dp"
+            tools:text="OJ_15_43_128_2023-24_0901202517527512.pdf" />
 
-        <!-- Document info (size and time) -->
+        <!-- 3-dot overflow menu button -->
+        <ImageView
+            android:id="@+id/btn_more"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_gravity="center_vertical"
+            android:padding="6dp"
+            android:src="@drawable/ic_more_vert"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="More options" />
+
+        <!-- Hidden but kept so adapter code doesn't crash -->
         <TextView
             android:id="@+id/text_doc_info"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="20dp"
-            android:layout_marginTop="6dp"
-            android:layout_marginEnd="8dp"
-            android:text="2.5 MB  •  10 mins ago"
-            android:textAppearance="?attr/textAppearanceBodyMedium"
-            android:textColor="?android:attr/textColorSecondary"
-            android:textSize="13sp"
-            app:layout_constraintStart_toEndOf="@id/icon_container"
-            app:layout_constraintTop_toBottomOf="@id/text_doc_name"
-            app:layout_constraintBottom_toBottomOf="@id/icon_container"
-            app:layout_constraintEnd_toStartOf="@id/icon_bookmark" />
+            android:layout_height="0dp"
+            android:visibility="gone" />
 
-        <!-- Bookmark icon -->
         <ImageView
             android:id="@+id/icon_bookmark"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginEnd="20dp"
-            android:padding="8dp"
-            android:src="@android:drawable/btn_star_big_off"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:tint="@color/text_secondary_light"
-            android:visibility="visible"
-            tools:visibility="visible" />
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone" />
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+    </LinearLayout>
 
-</com.google.android.material.card.MaterialCardView>
+    <!-- Thin separator line, indented to align with filename -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginStart="66dp"
+        android:layout_marginEnd="16dp"
+        android:background="@color/divider_line" />
+
+</LinearLayout>

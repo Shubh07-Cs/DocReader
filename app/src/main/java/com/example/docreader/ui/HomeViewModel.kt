@@ -91,6 +91,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Remove a document from the in-memory list (after successful delete) and refresh UI */
+    fun removeDocument(uri: String) {
+        allDocuments.removeAll { it.uri == uri }
+        applyFilters()
+    }
+
     // ── Sorting ──────────────────────────────────────────────────────────────
 
     enum class SortField  { DATE, NAME, SIZE }

@@ -22,8 +22,14 @@ data class DocumentItem(
     val isBookmarked: Boolean
 )
 
+/** Actions that can be triggered from the file options bottom sheet */
+enum class FileAction {
+    SELECT, SHARE, OPEN_WITH, RENAME, DELETE, FILE_INFO
+}
+
 class DocumentsAdapter(
-    private val onItemClick: (DocumentItem) -> Unit
+    private val onItemClick: (DocumentItem) -> Unit,
+    private val onMoreClick: (DocumentItem, View) -> Unit = { _, _ -> }
 ) : ListAdapter<DocumentItem, DocumentsAdapter.DocumentViewHolder>(DiffCallback) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): DocumentViewHolder {
@@ -47,7 +53,6 @@ class DocumentsAdapter(
             val context = binding.root.context
             
             binding.textDocName.text = item.name
-            binding.textDocInfo.text = "${item.size}  •  ${item.date}"
             
             // Determine file type icon and color based on extension
             val (iconRes, colorRes) = when (item.extension.lowercase()) {
@@ -64,30 +69,15 @@ class DocumentsAdapter(
             // Set icon and color
             binding.iconFileType.setImageResource(iconRes)
             binding.iconFileType.imageTintList = ColorStateList.valueOf(color)
-            
-            // Set accent stripe color
-            binding.accentStripe.setBackgroundColor(color)
-            
-            // Set circular icon background tint
-            binding.iconBackground.backgroundTintList = ColorStateList.valueOf(color)
-            
-            // Handle bookmark visibility and icon
-            if (item.isBookmarked) {
-                binding.iconBookmark.visibility = View.VISIBLE
-                binding.iconBookmark.setImageResource(android.R.drawable.btn_star_big_on)
-                binding.iconBookmark.imageTintList = ColorStateList.valueOf(
-                    ContextCompat.getColor(context, R.color.accent)
-                )
-            } else {
-                binding.iconBookmark.visibility = View.VISIBLE
-                binding.iconBookmark.setImageResource(android.R.drawable.btn_star_big_off)
-                binding.iconBookmark.imageTintList = ColorStateList.valueOf(
-                    ContextCompat.getColor(context, R.color.text_secondary_light)
-                )
-            }
 
-            binding.root.setOnClickListener {
+            // Tap on the row to open the document
+            binding.contentRow.setOnClickListener {
                 onItemClick(item)
+            }
+            
+            // 3-dot more button opens the bottom sheet
+            binding.btnMore.setOnClickListener { view ->
+                onMoreClick(item, view)
             }
         }
     }

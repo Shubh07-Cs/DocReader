@@ -46,4 +46,7 @@
     <!-- Transparent Colors -->
     <color name="overlay_light">#80000000</color>
     <color name="overlay_dark">#B3000000</color>
+    
+    <!-- Divider -->
+    <color name="divider_line">#30000000</color>
 </resources>

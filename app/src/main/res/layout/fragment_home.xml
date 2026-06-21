@@ -164,7 +164,7 @@
         android:id="@+id/recyclerViewDocuments"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:padding="16dp"
+        android:paddingTop="4dp"
         android:clipToPadding="false"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
         app:fastScrollEnabled="true"
