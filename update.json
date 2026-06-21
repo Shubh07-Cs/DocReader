@@ -1,5 +1,5 @@
 {
-  "versionCode": 6,
+  "versionCode": 7,
   "versionName": "0.3.0",
   "downloadUrl": "https://github.com/Shubh07-Cs/DocReader/releases/tag/V0.3.0",
   "changeLog": "Added new file options (Share, Open with, Rename, Delete, File Info)\nImproved UI design with better file spacing and dividers."
